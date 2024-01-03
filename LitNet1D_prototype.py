@@ -1,4 +1,3 @@
-import numpy as np
 from torchvision.transforms import Compose, ToTensor
 import torch
 import torch.nn as nn
@@ -18,35 +17,92 @@ import pytorch_lightning as pl
 import time
 import pickle
 
-from utils_mgr import readheavy, get_stft, clip_stft, clip_audio, DataAudio
+from utils_mgr import readheavy, get_stft, clip_audio, clip_stft, DataAudio
+
 
 print("let's start")
 
 ##tensorboard --logdir=lightning_logs/ 
 # to visualize logs
 
-class NNET2(nn.Module):
+
+def import_and_preprocess_data(config: dict, test = False,n_train=1):
+    
+    if test:
+        test = readheavy("test",2,"Audio/")
+        test_clip = clip_audio(test, 65_536)
+        transforms = Compose([ ToTensor(), ])
+        test_dataset = DataAudio(data=test_clip,transform=transforms)
+        # Qui imposto una batch size arbitraria. Lo faccio perché  temo che la funzione di main mi dia problemi
+        test_dataloader = DataLoader(test_dataset, 64, shuffle=False, num_workers=os.cpu_count())
+        return test_dataloader
+    print("reading train")
+    #Convert Audio into stft data
+    #train = readheavy("training",1,f"Audio/")
+    
+    train =  np.load(f"Audio/training_{n_train}.npy", allow_pickle = True)
+
+    valid = readheavy("validation",2,"Audio/")
+
+    # take each song and splits it into clips of n_samples 
+    # creates 
+    print("making clips")
+    train_clip = clip_stft(train, 65_536)   #65536 is the closest power of 2 to reproduce clips of 3s
+    print("making clips")
+    valid_clip = clip_stft(valid, 65_536)    
+
+    del train_stft
+    del valid_stft
+
+    gc.collect()
+
+    transforms = Compose([ ToTensor(), ]) # Normalize(0,1) is not necessary for stft data
+
+    train_dataset = DataAudio(data=train_clip,transform=transforms)
+    valid_dataset = DataAudio(data=valid_clip,transform=transforms)
+
+    del train_clip
+    del valid_clip
+
+    gc.collect()
+
+    #Creation of dataloader classes
+    batch_size = config["batch_size"]
+    print("train dataloader")
+    train_dataloader = DataLoader(train_dataset, batch_size, shuffle=True, num_workers=os.cpu_count())
+    print("valid dataloader")
+    valid_dataloader = DataLoader(valid_dataset, batch_size, shuffle=False, num_workers=os.cpu_count())
+    print("data loaded")
+
+    del train_dataset
+    del valid_dataset
+    gc.collect()
+
+    return train_dataloader, valid_dataloader
+
+
+class NNET1D(nn.Module):
         
     def __init__(self):
-        super(NNET2, self).__init__()
+        super(NNET1D, self).__init__()
         
         
         self.c1 = nn.Sequential(
-            nn.Conv2d(in_channels=1, out_channels=256,kernel_size=(4,513)),
+            nn.Conv1d(in_channels=1, out_channels=256,kernel_size=4),
             nn.BatchNorm2d(256),
             nn.ReLU(),
             nn.Dropout(p=0.2)
         )
 
         self.c2 = nn.Sequential(
-            nn.Conv2d(in_channels=256, out_channels=256, kernel_size=(4, 1),padding=(2,0)),
+            nn.Conv1d(in_channels=256, out_channels=256, kernel_size=4,padding=(2,0)),
             nn.BatchNorm2d(256),
             nn.ReLU(),
             nn.Dropout(p=0.2)
         )
 
         self.c3 = nn.Sequential(
-            nn.Conv2d(in_channels=256, out_channels=256, kernel_size=(4, 1),padding=(1,0)),
+            nn.Conv1d(in_channels=256, out_channels=256, kernel_size=4,padding=(1,0)),
             nn.BatchNorm2d(256),
             nn.ReLU(),
             nn.Dropout(p=0.2)
@@ -85,12 +141,16 @@ class NNET2(nn.Module):
         c1 = self.c1(x)
         c2 = self.c2(c1)
         c3 = self.c3(c2)
+        print('conv network: ', c3.shape)
         x = c1 + c3
+
         max_pool = F.max_pool2d(x, kernel_size=(125,1))
         avg_pool = F.avg_pool2d(x, kernel_size=(125,1))
+        print('x shape after pooling: ', x.shape)
         x = max_pool + avg_pool
         x = self.fc(x.view(-1, 256))
         return x 
+
 
 
 # Define a LightningModule (nn.Module subclass)
@@ -104,7 +164,7 @@ class LitNet(pl.LightningModule):
         
         print('Network initialized')
         
-        self.net = NNET2()
+        self.net = NNET1D()
         self.val_loss = []
         self.train_loss = []
         self.best_val = np.inf
@@ -159,74 +219,7 @@ class LitNet(pl.LightningModule):
         return optimizer
     
 
-def import_and_preprocess_data(config: dict, test = False,n_train=1):
     
-    if test:
-        test = readheavy("test",2,"Audio/")
-        test = get_stft(test)
-        test_clip = clip_stft(test, 128)
-        transforms = Compose([ ToTensor(), ])
-        test_dataset = DataAudio(data=test_clip,transform=transforms)
-        # Qui imposto una batch size arbitraria. Lo faccio perché  temo che la funzione di main mi dia problemi
-        test_dataloader = DataLoader(test_dataset, 64, shuffle=False, num_workers=os.cpu_count())
-        return test_dataloader
-    print("reading train")
-    #Convert Audio into stft data
-    #train = readheavy("training",1,f"Audio/")
-    
-    train =  np.load(f"Audio/training_{n_train}.npy", allow_pickle = True)
-    
-    print("getting stft")
-    train_stft = get_stft(train)
-   
-    del train
-    gc.collect()
-
-    valid = readheavy("validation",2,"Audio/")
-    valid_stft = get_stft(valid)
-
-    del valid
-    gc.collect()
-
-    # take each song and splits it into clips of n_samples 
-    # creates 
-    print("making clips")
-    train_clip = clip_stft(train_stft, 128)
-    print("making clips")
-    valid_clip = clip_stft(valid_stft, 128)
-
-    del train_stft
-    del valid_stft
-
-    gc.collect()
-
-    transforms = Compose([ ToTensor(), ]) # Normalize(0,1) is not necessary for stft data
-
-    train_dataset = DataAudio(data=train_clip,transform=transforms)
-    valid_dataset = DataAudio(data=valid_clip,transform=transforms)
-
-    del train_clip
-    del valid_clip
-
-    gc.collect()
-
-    #Creation of dataloader classes
-    batch_size = config["batch_size"]
-    print("train dataloader")
-    train_dataloader = DataLoader(train_dataset, batch_size, shuffle=True, num_workers=os.cpu_count())
-    print("valid dataloader")
-    valid_dataloader = DataLoader(valid_dataset, batch_size, shuffle=False, num_workers=os.cpu_count())
-    print("data loaded")
-
-    del train_dataset
-    del valid_dataset
-    gc.collect()
-
-    return train_dataloader, valid_dataloader
-
-
-
-
 def main():
     pl.seed_everything(666)
   
