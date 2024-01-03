@@ -1,3 +1,4 @@
+import numpy as np
 from torchvision.transforms import Compose, ToTensor
 import torch
 import torch.nn as nn
@@ -15,6 +16,7 @@ import gc
 import pytorch_lightning as pl
 import time
 import pickle
+import optuna
 
 from utils_mgr import readheavy, get_stft, clip_audio, clip_stft, DataAudio
 
@@ -28,9 +30,9 @@ print("let's start")
 def import_and_preprocess_data(config: dict, test = False,n_train=1):
     
     if test:
-        test = readheavy("test",2,"Audio/")
+        test = readheavy("test",2,"Data/Audio/")
         test_clip = clip_audio(test, 65_536)
-        transforms = Compose([ ToTensor(), ])
+        transforms = Compose([ torch.Tensor, ])
         test_dataset = DataAudio(data=test_clip,transform=transforms)
         # Qui imposto una batch size arbitraria. Lo faccio perché  temo che la funzione di main mi dia problemi
         test_dataloader = DataLoader(test_dataset, 64, shuffle=False, num_workers=os.cpu_count())
@@ -39,23 +41,20 @@ def import_and_preprocess_data(config: dict, test = False,n_train=1):
     #Convert Audio into stft data
     #train = readheavy("training",1,f"Audio/")
     
-    train =  np.load(f"Audio/training_{n_train}.npy", allow_pickle = True)
+    train =  np.load(f"Data/Audio/training_{n_train}.npy", allow_pickle = True)
 
-    valid = readheavy("validation",2,"Audio/")
+    valid = readheavy("validation",2,"Data/Audio/")
 
     # take each song and splits it into clips of n_samples 
     # creates 
     print("making clips")
-    train_clip = clip_stft(train, 65_536)   #65536 is the closest power of 2 to reproduce clips of 3s
+    train_clip = clip_audio(train, 65_536)   #65536 is the closest power of 2 to reproduce clips of 3s
     print("making clips")
-    valid_clip = clip_stft(valid, 65_536)    
+    valid_clip = clip_audio(valid, 65_536)    
 
-    del train_stft
-    del valid_stft
+    transforms = Compose([ torch.Tensor]) # Normalize(0,1) is not necessary for stft data
 
-    gc.collect()
-
-    transforms = Compose([ ToTensor(), ]) # Normalize(0,1) is not necessary for stft data
+    print('Dimensione dataset: ', train_clip.shape)
 
     train_dataset = DataAudio(data=train_clip,transform=transforms)
     valid_dataset = DataAudio(data=valid_clip,transform=transforms)
@@ -251,9 +250,9 @@ def main():
     trainer = pl.Trainer(max_epochs=100, check_val_every_n_epoch=5, log_every_n_steps=10, deterministic=True,callbacks=[early_stop_callback], )
     model = LitNet(hyperparameters)
     # Load model weights from checkpoint
-    CKPT_PATH = "./lightning_logs/version_9/checkpoints/epoch=24-step=2975.ckpt"
-    checkpoint = torch.load(CKPT_PATH)
-    model.load_state_dict(checkpoint['state_dict'])
+   # CKPT_PATH = "./lightning_logs/version_9/checkpoints/epoch=24-step=2975.ckpt"
+    #checkpoint = torch.load(CKPT_PATH)
+    #model.load_state_dict(checkpoint['state_dict'])
 
     train_dataloader, val_dataloader = import_and_preprocess_data(config=hyperparameters, n_train=10)
     trainer.fit(model, train_dataloader, val_dataloader)

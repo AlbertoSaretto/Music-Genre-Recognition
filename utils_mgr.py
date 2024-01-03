@@ -137,16 +137,16 @@ def clip_stft(a, n_samples):
 
 def clip_audio(df, n_samples):
     data_clip = np.array([0,0])
-    for j in range(len(data_clip)):
+    for j in range(len(df)):
         full = df[j, 0]
         n=0
         while (n<(len(full)-n_samples)):
             clip = full[n: (n+n_samples)]
             y = df[j, 1]
             new_row = np.array([clip, y], dtype=object)
-            a_clip = np.vstack([a_clip, new_row])
+            data_clip = np.vstack([data_clip, new_row])
             n+=int(n_samples/2)
-    return a_clip[1:]
+    return data_clip[1:]
 
 
 #Class for the creation of torch manageble datasets, with Format one can select the desired input column 
