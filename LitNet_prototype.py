@@ -162,7 +162,7 @@ class LitNet(pl.LightningModule):
 def import_and_preprocess_data(config: dict, test = False,n_train=1):
     
     if test:
-        test = readheavy("test",2,"Audio/")
+        test = readheavy("test",2,"Data/Audio/")
         test = get_stft(test)
         test_clip = clip_stft(test, 128)
         transforms = Compose([ ToTensor(), ])
@@ -174,7 +174,7 @@ def import_and_preprocess_data(config: dict, test = False,n_train=1):
     #Convert Audio into stft data
     #train = readheavy("training",1,f"Audio/")
     
-    train =  np.load(f"Audio/training_{n_train}.npy", allow_pickle = True)
+    train =  np.load(f"Data/Audio/training_{n_train}.npy", allow_pickle = True)
     
     print("getting stft")
     train_stft = get_stft(train)
@@ -182,7 +182,7 @@ def import_and_preprocess_data(config: dict, test = False,n_train=1):
     del train
     gc.collect()
 
-    valid = readheavy("validation",2,"Audio/")
+    valid = readheavy("validation",2,"Data/Audio/")
     valid_stft = get_stft(valid)
 
     del valid
@@ -259,9 +259,9 @@ def main():
     trainer = pl.Trainer(max_epochs=100, check_val_every_n_epoch=5, log_every_n_steps=10, deterministic=True,callbacks=[early_stop_callback], )
     model = LitNet(hyperparameters)
     # Load model weights from checkpoint
-    CKPT_PATH = "./lightning_logs/version_9/checkpoints/epoch=24-step=2975.ckpt"
-    checkpoint = torch.load(CKPT_PATH)
-    model.load_state_dict(checkpoint['state_dict'])
+    #CKPT_PATH = "./lightning_logs/version_9/checkpoints/epoch=24-step=2975.ckpt"
+    #checkpoint = torch.load(CKPT_PATH)
+    #model.load_state_dict(checkpoint['state_dict'])
 
     train_dataloader, val_dataloader = import_and_preprocess_data(config=hyperparameters, n_train=10)
     trainer.fit(model, train_dataloader, val_dataloader)
