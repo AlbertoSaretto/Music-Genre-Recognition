@@ -12,7 +12,6 @@ from torch.optim import Adadelta
 #from torch.nn import CrossEntropyLoss
 from tqdm import tqdm
 import gc
-import optuna
 import pytorch_lightning as pl
 import time
 import pickle
