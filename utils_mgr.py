@@ -6,6 +6,8 @@ from tensorflow.keras.utils import to_categorical
 import utils
 import librosa
 from sklearn.preprocessing import LabelEncoder
+import time
+from tqdm import tqdm
 
 
 
@@ -121,17 +123,18 @@ def clip_stft(a, n_samples):
 
 def clip_audio(df, n_samples):
     data_clip = np.array([0,0])
-    for j in range(len(df)):
+    for j in tqdm(range(len(df)), desc="Processing clips"):
         full = df[j, 0]
         n=0
-        while (n<(len(full)-n_samples)):
+        while (n<(len(full)-n_samples)) and n<4096:
             clip = full[n: (n+n_samples)]
             y = df[j, 1]
-            new_row = np.array([clip, y], dtype=object)
+            new_row = np.array([clip[np.newaxis,:], y], dtype=object)
             data_clip = np.vstack([data_clip, new_row])
             n+=int(n_samples/2)
+            
+           
     return data_clip[1:]
-
 
 #Class for the creation of torch manageble datasets, with Format one can select the desired input column 
 class DataAudio(Dataset):
