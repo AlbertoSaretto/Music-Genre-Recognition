@@ -3,14 +3,9 @@ from torchvision.transforms import Compose, ToTensor
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-#import torch.optim as optim
-#import torchvision
 from torch.utils.data import DataLoader
-#import torch
 import os 
-#import librosa
 from torch.optim import Adadelta
-#from torch.nn import CrossEntropyLoss
 from tqdm import tqdm
 import gc
 import optuna
