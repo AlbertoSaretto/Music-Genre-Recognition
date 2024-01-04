@@ -18,7 +18,7 @@ import pytorch_lightning as pl
 import time
 import pickle
 
-from utils_diego import readheavy, get_stft, clip_stft, DataDiego
+from utils_mgr import readheavy, get_stft, clip_stft, DataAudio
 
 print("let's start")
 
@@ -174,7 +174,7 @@ def import_and_preprocess_data(config: dict, test = False,n_train=1):
         test = get_stft(test)
         test_clip = clip_stft(test, 128)
         transforms = Compose([ ToTensor(), ])
-        test_dataset = DataDiego(data=test_clip,transform=transforms)
+        test_dataset = DataAudio(data=test_clip,transform=transforms)
         # Qui imposto una batch size arbitraria. Lo faccio perché  temo che la funzione di main mi dia problemi
         test_dataloader = DataLoader(test_dataset, 64, shuffle=False, num_workers=os.cpu_count())
         return test_dataloader
@@ -210,8 +210,8 @@ def import_and_preprocess_data(config: dict, test = False,n_train=1):
 
     transforms = Compose([ ToTensor(), ]) # Normalize(0,1) is not necessary for stft data
 
-    train_dataset = DataDiego(data=train_clip,transform=transforms)
-    valid_dataset = DataDiego(data=valid_clip,transform=transforms)
+    train_dataset = DataAudio(data=train_clip,transform=transforms)
+    valid_dataset = DataAudio(data=valid_clip,transform=transforms)
 
     del train_clip
     del valid_clip
