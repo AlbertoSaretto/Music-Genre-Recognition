@@ -1,32 +1,16 @@
 import numpy as np
 import pandas as pd
-from torchvision.transforms import Compose, ToTensor
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
-import torchvision
-from torch.utils.data import Dataset, DataLoader
-import torch
-import os 
+from torch.utils.data import Dataset
 import librosa
-from torch.optim import Adadelta
-from torch.nn import CrossEntropyLoss
-from tqdm import tqdm
 from tensorflow.keras.utils import to_categorical
 import utils
 import librosa
-import librosa.display
-from sklearn.datasets import fetch_openml
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.preprocessing import LabelEncoder
 
-
-# Directory where mp3 are stored
-AUDIO_DIR = 'Data/fma_small'
 
 
 #Function to extract audio signal from .mp3 file
-def getAudio(idx):
+def getAudio(idx, AUDIO_DIR = 'Data/fma_small'):
     #Get the audio file path
     filename = utils.get_audio_path(AUDIO_DIR, idx)
 
