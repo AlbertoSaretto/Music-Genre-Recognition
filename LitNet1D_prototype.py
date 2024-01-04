@@ -26,12 +26,11 @@ print("let's start")
 ##tensorboard --logdir=lightning_logs/ 
 # to visualize logs
 
-
 def import_and_preprocess_data(config: dict, test = False,n_train=1):
     
     if test:
-        test = readheavy("test",2,"Data/Audio/")
-        test_clip = clip_audio(test, 65_536)
+        test = readheavy("test",2,"Audio/")
+        test_clip = clip_audio(test, 1024)
         transforms = Compose([ torch.Tensor, ])
         test_dataset = DataAudio(data=test_clip,transform=transforms)
         # Qui imposto una batch size arbitraria. Lo faccio perché  temo che la funzione di main mi dia problemi
@@ -41,18 +40,18 @@ def import_and_preprocess_data(config: dict, test = False,n_train=1):
     #Convert Audio into stft data
     #train = readheavy("training",1,f"Audio/")
     
-    train =  np.load(f"Data/Audio/training_{n_train}.npy", allow_pickle = True)
+    train =  np.load(f"Audio/training_{n_train}.npy", allow_pickle = True)
 
-    valid = readheavy("validation",2,"Data/Audio/")
+    valid = readheavy("validation",2,"Audio/")
 
     # take each song and splits it into clips of n_samples 
     # creates 
     print("making clips")
-    train_clip = clip_audio(train, 65_536)   #65536 is the closest power of 2 to reproduce clips of 3s
+    train_clip = clip_audio(train, 1024)   #65536 is the closest power of 2 to reproduce clips of 3s
     print("making clips")
-    valid_clip = clip_audio(valid, 65_536)    
+    valid_clip = clip_audio(valid, 1024)    
 
-    transforms = Compose([ torch.Tensor]) # Normalize(0,1) is not necessary for stft data
+    transforms = Compose([torch.Tensor]) 
 
     print('Dimensione dataset: ', train_clip.shape)
 
@@ -78,7 +77,11 @@ def import_and_preprocess_data(config: dict, test = False,n_train=1):
 
     return train_dataloader, valid_dataloader
 
+# Remember to add initialisation of weights
 
+# Remember to add initialisation of weights
+
+# Remember to add initialisation of weights
 class NNET1D(nn.Module):
         
     def __init__(self):
@@ -87,27 +90,27 @@ class NNET1D(nn.Module):
         
         self.c1 = nn.Sequential(
             nn.Conv1d(in_channels=1, out_channels=256,kernel_size=4),
-            nn.BatchNorm2d(256),
+            nn.BatchNorm1d(256),
             nn.ReLU(),
             nn.Dropout(p=0.2)
         )
 
         self.c2 = nn.Sequential(
-            nn.Conv1d(in_channels=256, out_channels=256, kernel_size=4,padding=(2,0)),
-            nn.BatchNorm2d(256),
+            nn.Conv1d(in_channels=256, out_channels=256, kernel_size=4,padding=2),
+            nn.BatchNorm1d(256),
             nn.ReLU(),
             nn.Dropout(p=0.2)
         )
 
         self.c3 = nn.Sequential(
-            nn.Conv1d(in_channels=256, out_channels=256, kernel_size=4,padding=(1,0)),
-            nn.BatchNorm2d(256),
+            nn.Conv1d(in_channels=256, out_channels=256, kernel_size=4,padding=1),
+            nn.BatchNorm1d(256),
             nn.ReLU(),
             nn.Dropout(p=0.2)
         )
         
         self.fc = nn.Sequential(
-            nn.Linear(256, 300),
+            nn.Linear(2048, 300),
             nn.ReLU(),
             nn.Dropout(p=0.2),
             nn.Linear(300, 150),
@@ -117,36 +120,16 @@ class NNET1D(nn.Module):
             nn.Softmax(dim=1)
         )
 
-        #self.apply(self._init_weights)
-    """
-    def _init_weights(self, module):
-    
-        if model_weights is None:
-            if isinstance(module, torch.nn.Linear):
-                torch.nn.init.xavier_uniform_(module.weight)
-                if module.bias is not None:
-                    module.bias.data.zero_()
-            if isinstance(module, torch.nn.Conv2d):
-                torch.nn.init.xavier_uniform_(module.weight)
-                if module.bias is not None:
-                    module.bias.data.zero_()
-        else:
-            ???
-    """
-
-    def forward(self,x):
-        
+    def forward(self, x):
         c1 = self.c1(x)
         c2 = self.c2(c1)
         c3 = self.c3(c2)
-        print('conv network: ', c3.shape)
         x = c1 + c3
 
-        max_pool = F.max_pool2d(x, kernel_size=(125,1))
-        avg_pool = F.avg_pool2d(x, kernel_size=(125,1))
-        print('x shape after pooling: ', x.shape)
+        max_pool = F.max_pool1d(x, kernel_size=125)
+        avg_pool = F.avg_pool1d(x, kernel_size=125)
         x = max_pool + avg_pool
-        x = self.fc(x.view(-1, 256))
+        x = self.fc(x.view(-1, 2048))
         return x 
 
 
@@ -189,6 +172,7 @@ class LitNet(pl.LightningModule):
         # At the end of validation, the model goes back to training mode and gradients are enabled.
         x_batch = batch[0]
         label_batch = batch[1]
+
         out = self.net(x_batch)
         loss = F.cross_entropy(out, label_batch)
 
@@ -224,6 +208,7 @@ def main():
     # Set the hyperparameters in the config dictionary
     # Parameters found with Optuna. Find a way to automatically import this
 
+    
     # Specify the path to the pickle file
     file_path = "./trial.pickle"
 
@@ -250,11 +235,11 @@ def main():
     trainer = pl.Trainer(max_epochs=100, check_val_every_n_epoch=5, log_every_n_steps=10, deterministic=True,callbacks=[early_stop_callback], )
     model = LitNet(hyperparameters)
     # Load model weights from checkpoint
-   # CKPT_PATH = "./lightning_logs/version_9/checkpoints/epoch=24-step=2975.ckpt"
+    #CKPT_PATH = "./lightning_logs/version_9/checkpoints/epoch=24-step=2975.ckpt"
     #checkpoint = torch.load(CKPT_PATH)
     #model.load_state_dict(checkpoint['state_dict'])
 
-    train_dataloader, val_dataloader = import_and_preprocess_data(config=hyperparameters, n_train=10)
+    train_dataloader, val_dataloader = import_and_preprocess_data(config=hyperparameters, n_train=1)
     trainer.fit(model, train_dataloader, val_dataloader)
 
    
