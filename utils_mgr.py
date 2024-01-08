@@ -126,7 +126,8 @@ def clip_audio(df, n_samples):
     for j in tqdm(range(len(df)), desc="Processing clips"):
         full = df[j, 0]
         n=0
-        while (n<(len(full)-n_samples)) and n<4096:
+        #while (n<(len(full)-n_samples)) and n<4096:
+        while (n<(len(full)-n_samples)):
             clip = full[n: (n+n_samples)]
             y = df[j, 1]
             new_row = np.array([clip[np.newaxis,:], y], dtype=object)
@@ -152,8 +153,40 @@ class DataAudio(Dataset):
         x = self.x[idx]
         y = self.y[idx]
         if self.transform:
-            x = self.transform(x)
+            x = self.transform(x)  # why not transofrming y?
             
         return x, y
 
 
+def pca_transform(clips, n_components=0.99):
+
+    from sklearn.decomposition import PCA
+
+    """
+    It's necessary to manipulate the data in order to apply PCA, since it requires a 2D array as input
+    First X is extracted, then it's reshaped in a 2D array with vstack,
+    then PCA is applied and finally the data is reshaped again
+    
+    Examples of shapes, using import_and_preprocess_data with window of 22050/10
+
+    clip.shape = (59243,2)
+    X.shape = (59243,)
+    np.vstack(X).shape = (59243, 2205)
+    pca.fit_transform(X).shape = (59243, 1237)
+
+    So to use a trick to substitue all X with X_ in the original dataset
+    it's necessary to np.split(X_, 59243, axis=0)
+
+    """
+    # Extract X
+    X = clips[:,0]
+    # Reshape X in a 2D array
+    X = np.vstack(X)
+    # Apply PCA
+    pca = PCA(n_components=n_components)
+    X_ = pca.fit_transform(X)
+    
+    # Substitute X with X_ in the original dataset
+    clips[:,0] = np.split(X_, clips.shape[0], axis=0)
+
+    return clips
