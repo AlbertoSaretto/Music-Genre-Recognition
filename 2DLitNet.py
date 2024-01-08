@@ -79,7 +79,7 @@ class NNET2(nn.Module):
         max_pool = F.max_pool2d(x, kernel_size=(125,1))
         avg_pool = F.avg_pool2d(x, kernel_size=(125,1))
         x = max_pool + avg_pool
-        x = self.fc(x.view(-1, 256))
+        x = self.fc(x.view(x.size(0), -1))
         return x 
 
 
