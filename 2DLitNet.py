@@ -29,26 +29,31 @@ class NNET2(nn.Module):
         self.c1 = nn.Sequential(
             nn.Conv2d(in_channels=1, out_channels=256,kernel_size=(4,513)),
             nn.BatchNorm2d(256),
-            nn.ReLU()
+            nn.ReLU(),
+            nn.Dropout(p=0.2)
         )
 
         self.c2 = nn.Sequential(
             nn.Conv2d(in_channels=256, out_channels=256, kernel_size=(4, 1),padding=(2,0)),
             nn.BatchNorm2d(256),
-            nn.ReLU()
+            nn.ReLU(),
+            nn.Dropout(p=0.2)
         )
 
         self.c3 = nn.Sequential(
             nn.Conv2d(in_channels=256, out_channels=256, kernel_size=(4, 1),padding=(1,0)),
             nn.BatchNorm2d(256),
-            nn.ReLU()
+            nn.ReLU(),
+            nn.Dropout(p=0.2)
         )
         
         self.fc = nn.Sequential(
             nn.Linear(256, 300),
             nn.ReLU(),
+            nn.Dropout(p=0.2),
             nn.Linear(300, 150),
             nn.ReLU(),
+            nn.Dropout(p=0.2),
             nn.Linear(150, 8),
             nn.Softmax(dim=1)
         )
@@ -165,8 +170,8 @@ class LitNet(pl.LightningModule):
 def import_and_preprocess_data(config: dict, test = False,n_train=1):
     
     if test:
-        test = readheavy("test",2,"Audio/")
-        test = get_stft(test)
+        test = readheavy("test",2,"Data/Audio/")
+        test = get_stft(test, get_log = True)
         test_clip = clip_stft(test, 128)
         transforms = Compose([ ToTensor(), ])
         test_dataset = DataAudio(data=test_clip,transform=transforms)
@@ -177,16 +182,16 @@ def import_and_preprocess_data(config: dict, test = False,n_train=1):
     #Convert Audio into stft data
     #train = readheavy("training",1,f"Audio/")
     
-    train =  np.load(f"Audio/training_{n_train}.npy", allow_pickle = True)
+    train =  np.load(f"Data/Audio/training_{n_train}.npy", allow_pickle = True)
     
     print("getting stft")
-    train_stft = get_stft(train)
+    train_stft = get_stft(train, get_log=True)
    
     del train
     gc.collect()
 
-    valid = readheavy("validation",2,"Audio/")
-    valid_stft = get_stft(valid)
+    valid = readheavy("validation",2,"Data/Audio/")
+    valid_stft = get_stft(valid, get_log=True)
 
     del valid
     gc.collect()
@@ -262,7 +267,7 @@ def main(test=False,n_train=1):
     model = LitNet(hyperparameters)
 
     # Load model weights from checkpoint
-    CKPT_PATH = "./lightning_logs/version_15/checkpoints/epoch=19-step=2380.ckpt"
+    CKPT_PATH = "./lightning_logs/version_4/checkpoints/epoch=19-step=2380.ckpt"
     checkpoint = torch.load(CKPT_PATH)
     model.load_state_dict(checkpoint['state_dict'])
 
@@ -276,4 +281,4 @@ def main(test=False,n_train=1):
 
 
 if __name__ == "__main__":
-    main(test=True,n_train=16)
+    main(test=False,n_train=3)

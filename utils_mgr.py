@@ -97,13 +97,20 @@ def readheavy(name, n, Dir):
 
 
 
-def get_stft(a):
-    for j in range(len(a)):
-        audio = a[j, 0]
-        stft = np.abs(librosa.stft(audio, n_fft=1024, hop_length=512))
-        a[j ,0] = stft
-    return a
-
+def get_stft(a, get_log = False):
+    if(get_log == False):
+        for j in range(len(a)):
+            audio = a[j, 0]
+            stft = np.abs(librosa.stft(audio, n_fft=1024, hop_length=512))   
+            a[j ,0] = stft 
+        return a    
+    if(get_log == True):
+        for j in range(len(a)):
+            audio = a[j, 0]
+            stft = np.abs(librosa.stft(audio, n_fft=1024, hop_length=512))   
+            log_stft = librosa.amplitude_to_db(stft)
+            a[j ,0] = log_stft
+        return a
 
 #Function to generate shorter data clips 
 
