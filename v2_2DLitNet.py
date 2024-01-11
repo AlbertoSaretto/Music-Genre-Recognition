@@ -13,7 +13,7 @@ import pytorch_lightning as pl
 import time
 import pickle
 import utils
-from utils_mgr import readheavy, get_stft, clip_stft, DataAudio, create_subset
+from utils_mgr import DataAudio, create_subset
 
 
 print("let's start")
@@ -61,8 +61,8 @@ def import_and_preprocess_data(architecture_type="1D"):
     val_dataset      = DataAudio(val_set, transform = transforms,type=architecture_type)
     val_dataloader   = DataLoader(val_dataset, batch_size=64, shuffle=False, num_workers=os.cpu_count())
 
-    test_dataset     = DataAudio(test_set, transform = transforms)
-    test_dataloader  = DataLoader(test_dataset, batch_size=64, shuffle=False, num_workers=os.cpu_count(),type=architecture_type)
+    test_dataset     = DataAudio(test_set, transform = transforms,type=architecture_type)
+    test_dataloader  = DataLoader(test_dataset, batch_size=64, shuffle=False, num_workers=os.cpu_count())
 
 
     return train_dataloader, val_dataloader, test_dataloader
@@ -124,13 +124,13 @@ class NNET2(nn.Module):
     """
     def forward(self,x):
         
-        c1 = self.c1(x)
+        c1 = self.c1(x) 
         c2 = self.c2(c1)
         c3 = self.c3(c2)
         x = c1 + c3
         max_pool = F.max_pool2d(x, kernel_size=(125,1))
         avg_pool = F.avg_pool2d(x, kernel_size=(125,1))
-        x = max_pool + avg_pool
+        x = torch.cat([max_pool,avg_pool],dim=1)
         x = self.fc(x.view(x.size(0), -1)) # maybe I should use flatten instead of view
         return x 
 
@@ -232,7 +232,7 @@ def load_optuna( file_path = "./trial.pickle"):
         # Load the data from the pickle file
         best_optuna = pickle.load(file)
     
-    #best_optuna.params["lr"] = 0.01 #changing learning rate
+    best_optuna.params["lr"] = 0.5 #changing learning rate
     hyperparameters = best_optuna.params
     
     return hyperparameters
@@ -255,10 +255,10 @@ def main():
 
 
     # I think that Trainer automatically takes last checkpoint.
-    trainer = pl.Trainer(max_epochs=20, check_val_every_n_epoch=1, log_every_n_steps=1, 
+    trainer = pl.Trainer(max_epochs=100, check_val_every_n_epoch=5, log_every_n_steps=1, 
                          deterministic=True,callbacks=[early_stop_callback], ) # profiler="simple" remember to add this and make fun plots
     
-    hyperparameters = load_optuna("./trailv2.pickle")
+    hyperparameters = load_optuna("./trialv2.pickle")
     model = LitNet(hyperparameters)
     
     #model = LitNet()
@@ -271,7 +271,7 @@ def main():
     """
 
     train_dataloader, val_dataloader, test_dataloader = import_and_preprocess_data(architecture_type="2D")
-    print("data shape",train_dataloader.dataset.x.shape)
+    print("data shape",train_dataloader.dataset.__getitem__(0)[0].shape)
     trainer.fit(model, train_dataloader, val_dataloader)
     trainer.test(model=model,dataloaders=test_dataloader,verbose=True)
 
