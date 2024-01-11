@@ -139,7 +139,7 @@ class NNET2(nn.Module):
 # A LightningModule defines a full system (ie: a GAN, autoencoder, BERT or a simple Image Classifier).
 class LitNet(pl.LightningModule):
     
-    def __init__(self, config: dict):
+    def __init__(self, config=None):
        
         super().__init__()
         # super(NNET2, self).__init__() ? 
@@ -252,7 +252,7 @@ def main():
 
 
     # I think that Trainer automatically takes last checkpoint.
-    trainer = pl.Trainer(max_epochs=1, check_val_every_n_epoch=1, log_every_n_steps=1, 
+    trainer = pl.Trainer(max_epochs=2, check_val_every_n_epoch=1, log_every_n_steps=1, 
                          deterministic=True,callbacks=[early_stop_callback], ) # profiler="simple" remember to add this and make fun plots
     
     #hyperparameters = load_optuna()
