@@ -150,7 +150,14 @@ class LitNet(pl.LightningModule):
         self.val_loss = []
         self.train_loss = []
         self.best_val = np.inf
-        self.config = config
+        
+        # If no configurations regarding the optimizer are specified, use the default ones
+        try:
+            self.optimizer = Adadelta(self.net.parameters(),
+                                       lr=config["lr"],rho=config["rho"], eps=config["eps"], weight_decay=config["weight_decay"])
+        except:
+                print("Using default optimizer parameters")
+                self.optimizer = Adadelta(self.net.parameters())
         
 
     def forward(self,x):
@@ -210,10 +217,22 @@ class LitNet(pl.LightningModule):
         self.log("test_acc", test_acc, prog_bar=True)
 
     def configure_optimizers(self):
-        optimizer = Adadelta(self.net.parameters(), lr=self.config["lr"],rho=self.config["rho"], eps=self.config["eps"], weight_decay=self.config["weight_decay"])
-        return optimizer
+        return self.optimizer
     
 
+def load_optuna( file_path = "./trial.pickle"):
+    # Specify the path to the pickle file
+
+
+    # Open the pickle file in read mode
+    with open(file_path, "rb") as file:
+        # Load the data from the pickle file
+        best_optuna = pickle.load(file)
+    
+    #best_optuna.params["lr"] = 0.01 #changing learning rate
+    hyperparameters = best_optuna.params
+    
+    return hyperparameters
 
 
 def main():
@@ -221,19 +240,7 @@ def main():
   
     # Set the hyperparameters in the config dictionary
     # Parameters found with Optuna. Find a way to automatically import this
-    
-    # Specify the path to the pickle file
-    file_path = "./trial.pickle"
-
-    # Open the pickle file in read mode
-    with open(file_path, "rb") as file:
-        # Load the data from the pickle file
-        best_optuna = pickle.load(file)
-    
-    best_optuna.params["lr"] = 0.01 #changing learning rate
-    hyperparameters = best_optuna.params
-    
-
+   
     # Define the EarlyStopping callback
     early_stop_callback = pl.callbacks.EarlyStopping(
         monitor='val_loss',  # Monitor the validation loss
@@ -247,7 +254,11 @@ def main():
     # I think that Trainer automatically takes last checkpoint.
     trainer = pl.Trainer(max_epochs=1, check_val_every_n_epoch=1, log_every_n_steps=1, 
                          deterministic=True,callbacks=[early_stop_callback], ) # profiler="simple" remember to add this and make fun plots
-    model = LitNet(hyperparameters)
+    
+    #hyperparameters = load_optuna()
+    #model = LitNet(hyperparameters)
+    
+    model = LitNet()
 
     """
     # Load model weights from checkpoint
