@@ -18,7 +18,7 @@ def getAudio(idx, AUDIO_DIR = 'data/fma_small'):
     filename = utils.get_audio_path(AUDIO_DIR, idx)
 
     #Load the audio (sr = sampling rate, number of audio carries per second)
-    x, sr = librosa.load(filename, sr=22050, mono=True)  #sr=None to consider original sampling rate
+    x, sr = librosa.load(filename, sr=None, mono=True)  #sr=None to consider original sampling rate
 
     return x, sr
 
@@ -219,22 +219,21 @@ class DataAudio(Dataset):
         # Get audio
 
         # load audio track
-        with warnings.catch_warnings():
-            warnings.simplefilter('ignore')
-            audio, sr = getAudio(self.track_ids[i])
+        #with warnings.catch_warnings():
+        #    warnings.simplefilter('ignore')
+        audio, sr = getAudio(self.track_ids[i])
 
         #Select random clip from audio
-        start = np.random.randint(0, (audio.shape[0]-2**17))
-        audio = audio[start:start+2**17]
+        start = np.random.randint(0, (audio.shape[0]-2**18))
+        audio = audio[start:start+2**18]
         
         if self.type ==  "2D":
 
             #Get 2D spectrogram
-            stft = np.abs(librosa.stft(audio, n_fft=2048, hop_length=1024))
-            with warnings.catch_warnings():
-                warnings.simplefilter('ignore')
-                mel = librosa.feature.melspectrogram(sr=22050, S=stft**2, n_mels=513)[:,:128]
-                mel = librosa.power_to_db(mel).T
+            stft = np.abs(librosa.stft(audio, n_fft=4096, hop_length=1024))
+            
+            mel = librosa.feature.melspectrogram(sr=22050, S=stft**2, n_mels=513)[:,:128]
+            mel = librosa.power_to_db(mel).T
             return mel
         
         return audio[np.newaxis,:]
