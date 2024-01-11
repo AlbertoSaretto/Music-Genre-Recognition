@@ -47,7 +47,7 @@ def import_and_preprocess_data():
 
     # Standard transformations for images
     # Mean and std are computed on one file of the training set
-    transforms = v2.Compose([v2.ToImage(),
+    transforms = v2.Compose([v2.ToTensor(),
         v2.RandomResizedCrop(size=(128,513), antialias=True), 
         v2.RandomHorizontalFlip(p=0.5),
         v2.ToDtype(torch.float32, scale=True),
