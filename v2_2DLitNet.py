@@ -94,13 +94,7 @@ class NNET2(nn.Module):
             nn.ReLU(),
             nn.Dropout2d(.2)
         )
-        
-        self.c4 = nn.Sequential(
-            nn.Conv2d(in_channels=256, out_channels=256, kernel_size=(4, 1)),
-            nn.BatchNorm2d(256),
-            nn.ReLU()
-        )
-        
+               
 
         self.fc = nn.Sequential(
             nn.Linear(256, 300),
@@ -137,8 +131,6 @@ class NNET2(nn.Module):
         max_pool = F.max_pool2d(x, kernel_size=(125,1))
         avg_pool = F.avg_pool2d(x, kernel_size=(125,1))
         x = max_pool + avg_pool
-        #print("max pooled shape",x.shape)
-        #x = self.c4(x)
         x = self.fc(x.view(x.size(0), -1)) # maybe I should use flatten instead of view
         return x 
 
