@@ -220,24 +220,27 @@ class LitNet(pl.LightningModule):
         return self.optimizer
     
 
-def main():
-    pl.seed_everything(666)
-  
-    # Set the hyperparameters in the config dictionary
-    # Parameters found with Optuna. Find a way to automatically import this
-    
+def load_optuna( file_path = "./trial.pickle"):
     # Specify the path to the pickle file
-    file_path = "./trial.pickle"
+
 
     # Open the pickle file in read mode
     with open(file_path, "rb") as file:
         # Load the data from the pickle file
         best_optuna = pickle.load(file)
     
-    best_optuna.params["lr"] = 0.01 #changing learning rate
+    #best_optuna.params["lr"] = 0.01 #changing learning rate
     hyperparameters = best_optuna.params
     
+    return hyperparameters
 
+
+def main():
+    pl.seed_everything(666)
+  
+    # Set the hyperparameters in the config dictionary
+    # Parameters found with Optuna. Find a way to automatically import this
+   
     # Define the EarlyStopping callback
     early_stop_callback = pl.callbacks.EarlyStopping(
         monitor='val_loss',  # Monitor the validation loss
@@ -251,7 +254,11 @@ def main():
     # I think that Trainer automatically takes last checkpoint.
     trainer = pl.Trainer(max_epochs=3, check_val_every_n_epoch=3, log_every_n_steps=1, 
                          deterministic=True,callbacks=[early_stop_callback], ) # profiler="simple" remember to add this and make fun plots
-    model = LitNet(hyperparameters)
+    
+    #hyperparameters = load_optuna()
+    #model = LitNet(hyperparameters)
+    
+    model = LitNet()
 
     """
     # Load model weights from checkpoint
