@@ -246,14 +246,14 @@ def main():
     early_stop_callback = pl.callbacks.EarlyStopping(
         monitor='val_loss',  # Monitor the validation loss
         min_delta=0.01,     # Minimum change in the monitored metric
-        patience=3,          # Number of epochs with no improvement after which training will be stopped
+        patience=20,          # Number of epochs with no improvement after which training will be stopped
         verbose=True,
         mode='min'           # Mode: 'min' if you want to minimize the monitored quantity (e.g., loss)
     )
 
 
     # I think that Trainer automatically takes last checkpoint.
-    trainer = pl.Trainer(max_epochs=2, check_val_every_n_epoch=1, log_every_n_steps=1, 
+    trainer = pl.Trainer(max_epochs=20, check_val_every_n_epoch=1, log_every_n_steps=1, 
                          deterministic=True,callbacks=[early_stop_callback], ) # profiler="simple" remember to add this and make fun plots
     
     #hyperparameters = load_optuna()
