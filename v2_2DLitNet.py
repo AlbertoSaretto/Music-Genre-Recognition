@@ -158,6 +158,7 @@ class LitNet(pl.LightningModule):
         except:
                 print("Using default optimizer parameters")
                 self.optimizer = Adadelta(self.net.parameters())
+                print("optimzier parameters:", self.optimizer)
         
 
     def forward(self,x):
