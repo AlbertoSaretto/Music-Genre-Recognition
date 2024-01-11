@@ -21,9 +21,9 @@ print("let's start")
 ##tensorboard --logdir=lightning_logs/ 
 # to visualize logs
 
-def import_and_preprocess_data(PATH_DATA="/home/diego/fma/data/"):
+def import_and_preprocess_data():
     # Load metadata and features.
-    tracks = utils.load(PATH_DATA + 'fma_metadata/tracks.csv')
+    tracks = utils.load('data/fma_metadata/tracks.csv')
 
     #Check tracks format
     print("track shape",tracks.shape)
