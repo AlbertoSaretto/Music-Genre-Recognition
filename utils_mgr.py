@@ -13,7 +13,7 @@ import warnings
 
 
 #Function to extract audio signal from .mp3 file
-def getAudio(idx, AUDIO_DIR = 'Data/fma_small'):
+def getAudio(idx, AUDIO_DIR = 'data/fma_small'):
     #Get the audio file path
     filename = utils.get_audio_path(AUDIO_DIR, idx)
 
@@ -84,9 +84,9 @@ def saveheavy(data, name, n):  #functions to save havy arrays in multiple files
     if(n>1):
         for i in range(n-1):
             data_i = data[int((l/n)*i):int((l/n)*(i+1))]
-            np.save(f'Data/Audio/{name}_{i+1}.npy', data_i)
+            np.save(f'data/audio_array/{name}_{i+1}.npy', data_i)
     data_i = data[int((l/n)*(n-1)):l]
-    np.save(f'Data/Audio/{name}_{n}.npy', data_i)
+    np.save(f'data/audio_array/{name}_{n}.npy', data_i)
 
 
 def readheavy(name, n, Dir):
