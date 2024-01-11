@@ -8,6 +8,7 @@ import librosa
 from sklearn.preprocessing import LabelEncoder
 import time
 from tqdm import tqdm
+import warnings
 
 
 
@@ -111,6 +112,29 @@ def get_stft(a, get_log = False):
             log_stft = librosa.amplitude_to_db(stft)
             a[j ,0] = log_stft
         return a
+    
+
+def get_mel_from_clip(c_stft):
+    for j in range(len(c_stft)):
+        clip = c_stft[j,0]
+        mel = librosa.feature.melspectrogram(sr=22050, S=clip**2, n_mels=513)
+        c_stft[j,0] = librosa.power_to_db(mel)
+    return c_stft   
+
+
+
+def get_mfcc(a):
+        for j in range(len(a)):
+            audio = a[j, 0]
+            stft = np.abs(librosa.stft(audio, n_fft=1024, hop_length=512)) 
+            mel = librosa.feature.melspectrogram(sr=22050, S=stft**2)  
+            mfcc = librosa.feature.mfcc(S=librosa.power_to_db(mel), n_mfcc=20)
+            mfcc = skl.preprocessing.StandardScaler().fit_transform(mfcc)
+            a[j ,0] = stft 
+        return a
+
+
+
 
 #Function to generate shorter data clips 
 
@@ -144,6 +168,7 @@ def clip_audio(df, n_samples):
            
     return data_clip[1:]
 
+"""
 #Class for the creation of torch manageble datasets, with Format one can select the desired input column 
 class DataAudio(Dataset):
 
@@ -163,7 +188,73 @@ class DataAudio(Dataset):
             x = self.transform(x)  # why not transofrming y?
             
         return x, y
+"""
 
+
+class DataAudio(Dataset):
+
+    def __init__(self, df, transform = None, type = "1D"):
+        
+        # Get track index
+        self.track_ids = df['index'].values
+
+        #Get genre label
+        self.label = df['labels'].values
+
+        #Transform
+        self.transform = transform
+
+        #Select type of input
+        self.type = type
+
+
+
+    def __len__(self):
+
+        return len(self.track_ids)
+
+
+    def create_input(self, i):
+
+        # Get audio
+
+        # load audio track
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            audio, sr = getAudio(self.track_ids[i])
+
+        #Select random clip from audio
+        start = np.random.randint(0, (audio.shape[0]-2**17))
+        audio = audio[start:start+2**17]
+        
+        if self.type ==  "2D":
+
+            #Get 2D spectrogram
+            stft = np.abs(librosa.stft(audio, n_fft=2048, hop_length=1024))
+            with warnings.catch_warnings():
+                warnings.simplefilter('ignore')
+                mel = librosa.feature.melspectrogram(sr=22050, S=stft**2, n_mels=513)[:,:128]
+                mel = librosa.power_to_db(mel).T
+            return mel
+        
+        return audio[np.newaxis,:]
+
+
+
+    def __getitem__(self, idx):
+
+        # get input and label
+
+        x = self.create_input(idx) 
+        y = self.label[idx]
+
+        if self.transform:
+            x = self.transform(x)
+
+        return x,y
+
+
+    
 
 def pca_transform(clips, n_components=0.99):
 
