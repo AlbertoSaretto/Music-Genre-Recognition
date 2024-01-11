@@ -13,20 +13,17 @@ import pytorch_lightning as pl
 import time
 import pickle
 import utils
-from utils_mgr import DataAudio, create_subset
+from utils_mgr import readheavy, get_stft, clip_stft, DataAudio, create_subset
 
 
 print("let's start")
 
-##tensorboard --logdir=lightning_logs/ 
-# to visualize logs
+##tensorboard --logdir=lightning_logs/ to visualize logs
 
-def import_and_preprocess_data(architecture_type="1D"):
+
+def import_and_preprocess_data():
     # Load metadata and features.
     tracks = utils.load('data/fma_metadata/tracks.csv')
-
-    #Check tracks format
-    print("track shape",tracks.shape)
 
     #Select the desired subset among the entire dataset
     sub = 'small'
@@ -55,17 +52,19 @@ def import_and_preprocess_data(architecture_type="1D"):
         ])
 
     # Create the datasets and the dataloaders
-    train_dataset    = DataAudio(train_set, transform = transforms,type=architecture_type)
+    train_dataset    = DataAudio(train_set, transform = transforms)
     train_dataloader = DataLoader(train_dataset, batch_size=64, shuffle=True, num_workers=os.cpu_count())
 
-    val_dataset      = DataAudio(val_set, transform = transforms,type=architecture_type)
+    val_dataset      = DataAudio(val_set, transform = transforms)
     val_dataloader   = DataLoader(val_dataset, batch_size=64, shuffle=False, num_workers=os.cpu_count())
 
-    test_dataset     = DataAudio(test_set, transform = transforms,type=architecture_type)
+    test_dataset     = DataAudio(test_set, transform = transforms)
     test_dataloader  = DataLoader(test_dataset, batch_size=64, shuffle=False, num_workers=os.cpu_count())
 
 
     return train_dataloader, val_dataloader, test_dataloader
+
+
 
 
 class NNET2(nn.Module):
@@ -124,16 +123,15 @@ class NNET2(nn.Module):
     """
     def forward(self,x):
         
-        c1 = self.c1(x) 
+        c1 = self.c1(x)
         c2 = self.c2(c1)
         c3 = self.c3(c2)
         x = c1 + c3
         max_pool = F.max_pool2d(x, kernel_size=(125,1))
         avg_pool = F.avg_pool2d(x, kernel_size=(125,1))
-        x = torch.cat([max_pool,avg_pool],dim=1)
+        x = max_pool + avg_pool
         x = self.fc(x.view(x.size(0), -1)) # maybe I should use flatten instead of view
         return x 
-
 
 # Define a LightningModule (nn.Module subclass)
 # A LightningModule defines a full system (ie: a GAN, autoencoder, BERT or a simple Image Classifier).
@@ -155,8 +153,6 @@ class LitNet(pl.LightningModule):
         try:
             self.optimizer = Adadelta(self.net.parameters(),
                                        lr=config["lr"],rho=config["rho"], eps=config["eps"], weight_decay=config["weight_decay"])
-            print("loaded parameters from pickle")
-            print("optimzier parameters:", self.optimizer)
         except:
                 print("Using default optimizer parameters")
                 self.optimizer = Adadelta(self.net.parameters())
@@ -223,58 +219,73 @@ class LitNet(pl.LightningModule):
         return self.optimizer
     
 
-def load_optuna( file_path = "./trial.pickle"):
-    # Specify the path to the pickle file
+def objective(trial):
 
+    """
+    # PyTorch Lightning will try to restore model parameters from previous trials if checkpoint
+    # filenames match. Therefore, the filenames for each trial must be made unique.
+    checkpoint_callback = pl.callbacks.ModelCheckpoint(
+        os.path.join(MODEL_DIR, "trial_{}".format(trial.number)), monitor="accuracy"
+    )
 
-    # Open the pickle file in read mode
-    with open(file_path, "rb") as file:
-        # Load the data from the pickle file
-        best_optuna = pickle.load(file)
+    """
+
+    # Set the hyperparameters in the config dictionary
+    hyperparameters = {
+        "weight_decay": trial.suggest_float("weight_decay", 1e-6, 1e-3, log=True),
+        "eps": trial.suggest_float("eps", 1e-10, 1e-5, log=True),
+        "rho": trial.suggest_float("rho", 0.1, 0.95),
+        "lr": trial.suggest_float("lr", 1e-4, 1e-1, log=True),
+        "batch_size": trial.suggest_categorical("batch_size", [32, 64, 128])
+    }
+
+    trainer = pl.Trainer(max_epochs=20, check_val_every_n_epoch=5, log_every_n_steps=1, deterministic=True,
+                        )
+ # had to remove  early_stop_callback=PyTorchLightningPruningCallback(trial, monitor="val_loss") from trainer
+
+    trainer.logger.log_hyperparams(hyperparameters)
+
+    model = LitNet(hyperparameters)
+   
+    # Hard coding; we should find a way to iterate over the number of training sets
     
-    best_optuna.params["lr"] = 0.5 #changing learning rate
-    hyperparameters = best_optuna.params
-    
-    return hyperparameters
+    train_dataloader, val_dataloader, _ = import_and_preprocess_data()    
+    trainer.fit(model, train_dataloader, val_dataloader)
+    return trainer.callback_metrics["val_loss"].item()
 
+
+def HyperTune():
+
+    pruner = optuna.pruners.NopPruner()
+    # print(pruner) <optuna.pruners._nop.NopPruner object at 0x7f4c2466ed50>
+    # print(type(pruner)) <class 'optuna.pruners._nop.NopPruner'>
+
+    study = optuna.create_study(study_name="firstv2", direction="minimize", pruner=pruner, load_if_exists=True) #storage="sqlite:///myfirstoptimizationstudy.db"
+    study.optimize(objective, n_trials=3, timeout=300)
+
+    print("Number of finished trials: {}".format(len(study.trials)))
+
+    print("Best trial:")
+    trial = study.best_trial
+
+    print("  Value: {}".format(trial.value))
+
+    print("  Params: ")
+    for key, value in trial.params.items():
+        print("    {}: {}".format(key, value))
+
+
+    return trial
 
 def main():
     pl.seed_everything(666)
+    trial = HyperTune() 
+
+    # Save trial as pickle
+    with open('trialv2.pickle', 'wb') as f:
+        pickle.dump(trial, f)
   
-    # Set the hyperparameters in the config dictionary
-    # Parameters found with Optuna. Find a way to automatically import this
-   
-    # Define the EarlyStopping callback
-    early_stop_callback = pl.callbacks.EarlyStopping(
-        monitor='val_loss',  # Monitor the validation loss
-        min_delta=0.01,     # Minimum change in the monitored metric
-        patience=20,          # Number of epochs with no improvement after which training will be stopped
-        verbose=True,
-        mode='min'           # Mode: 'min' if you want to minimize the monitored quantity (e.g., loss)
-    )
-
-
-    # I think that Trainer automatically takes last checkpoint.
-    trainer = pl.Trainer(max_epochs=100, check_val_every_n_epoch=5, log_every_n_steps=1, 
-                         deterministic=True,callbacks=[early_stop_callback], ) # profiler="simple" remember to add this and make fun plots
-    
-    hyperparameters = load_optuna("./trialv2.pickle")
-    model = LitNet(hyperparameters)
-    
-    #model = LitNet()
-
-    """
-    # Load model weights from checkpoint
-    CKPT_PATH = "./lightning_logs/version_1/checkpoints/epoch=29-step=3570.ckpt"
-    checkpoint = torch.load(CKPT_PATH)
-    model.load_state_dict(checkpoint['state_dict'])
-    """
-
-    train_dataloader, val_dataloader, test_dataloader = import_and_preprocess_data(architecture_type="2D")
-    print("data shape",train_dataloader.dataset.__getitem__(0)[0].shape)
-    trainer.fit(model, train_dataloader, val_dataloader)
-    trainer.test(model=model,dataloaders=test_dataloader,verbose=True)
-
 
 if __name__ == "__main__":
     main()
+

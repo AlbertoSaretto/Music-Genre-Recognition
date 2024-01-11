@@ -135,7 +135,7 @@ def get_mfcc(a):
 
 
 
-
+'''
 #Function to generate shorter data clips 
 
 def clip_stft(a, n_samples):
@@ -167,28 +167,7 @@ def clip_audio(df, n_samples):
             
            
     return data_clip[1:]
-
-"""
-#Class for the creation of torch manageble datasets, with Format one can select the desired input column 
-class DataAudio(Dataset):
-
-    def __init__(self, data, transform=None):
-        self.x = data[:,0]
-        self.y = data[:,1]
-        self.transform = transform
-
-    def __len__(self):
-       
-        return len(self.x)
-
-    def __getitem__(self, idx):
-        x = self.x[idx]
-        y = self.y[idx]
-        if self.transform:
-            x = self.transform(x)  # why not transofrming y?
-            
-        return x, y
-"""
+'''
 
 
 class DataAudio(Dataset):
@@ -227,12 +206,11 @@ class DataAudio(Dataset):
         start = np.random.randint(0, (audio.shape[0]-2**18))
         audio = audio[start:start+2**18]
         
-        if self.type ==  "2D":
-
+        if(self.type=="2D"):
             #Get 2D spectrogram
-            stft = np.abs(librosa.stft(audio, n_fft=4096, hop_length=1024))
+            stft = np.abs(librosa.stft(audio, n_fft=4096, hop_length=2048))
             
-            mel = librosa.feature.melspectrogram(sr=22050, S=stft**2, n_mels=513)[:,:128]
+            mel = librosa.feature.melspectrogram(sr=sr, S=stft**2, n_mels=513)[:,:128]
             mel = librosa.power_to_db(mel).T
             return mel
         
