@@ -47,10 +47,10 @@ def import_and_preprocess_data():
 
     # Standard transformations for images
     # Mean and std are computed on one file of the training set
-    transforms = v2.Compose([v2.ToTensor(),
+    transforms = v2.Compose([v2.ToImage(),
         v2.RandomResizedCrop(size=(128,513), antialias=True), 
         v2.RandomHorizontalFlip(p=0.5),
-        #v2.ToDtype(torch.float32, scale=True),
+        v2.ToDtype(torch.float32, scale=True),
         v2.Normalize(mean=[1.0784853], std=[4.0071154]),
         ])
 
@@ -252,7 +252,7 @@ def main():
 
 
     # I think that Trainer automatically takes last checkpoint.
-    trainer = pl.Trainer(max_epochs=3, check_val_every_n_epoch=1, log_every_n_steps=1, 
+    trainer = pl.Trainer(max_epochs=1, check_val_every_n_epoch=1, log_every_n_steps=1, 
                          deterministic=True,callbacks=[early_stop_callback], ) # profiler="simple" remember to add this and make fun plots
     
     #hyperparameters = load_optuna()
