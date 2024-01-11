@@ -1,0 +1,35 @@
+
+Rigurado pca: 
+    - fare stessa trasformazione? calcolo cambio coordinate su training e
+     poi applico tale cambio a tutto, oppure a ogni file la sua pca? --> IPCA
+     - se a ogni file la sua pca allora il numero di componenti di ogni file cambia! i.e. la NN si rompe
+     - necessaria incremental pca mi sa... FARESHI
+
+Provare Mel e MFCC in 2D
+Provare Gridsearch skorch 2D e 1D
+2. provare RNN su 1D
+Che preprox fare in 1 e 2 D?
+try normalizing!!!
+spatial transformer network for 2 D https://pytorch.org/tutorials/intermediate/spatial_transformer_tutorial.html
+1. per 1D: preprox con PCA e salvi, poi train model. Prova con file più piccoli...
+
+
+
+Normalize 2D and 1D and train 
+PCA on 1D and 2D: only on 1 and IPCA on 2 and check if smth changes. Then full train
+other.
+
+Convinciti che il modo in cui creiamo i dati sia corretto. 
+Migliorare classe DataAudio per non creare doppioni o processare interamente i file tutto all'interno?
+
+Goddamn inizializza i weights!!!
+
+
+
+training1 values
+mean 1.153822
+std 4.061239
+
+training2 values
+mean 1.0784853
+std 4.0071154
