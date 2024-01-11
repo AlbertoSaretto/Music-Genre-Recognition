@@ -59,10 +59,10 @@ def import_and_preprocess_data():
     train_dataloader = DataLoader(train_dataset, batch_size=64, shuffle=True, num_workers=os.cpu_count())
 
     val_dataset      = DataAudio(val_set, transform = transforms)
-    val_dataloader   = DataLoader(val_dataset, batch_size=64, shuffle=True, num_workers=os.cpu_count())
+    val_dataloader   = DataLoader(val_dataset, batch_size=64, shuffle=False, num_workers=os.cpu_count())
 
     test_dataset     = DataAudio(test_set, transform = transforms)
-    test_dataloader  = DataLoader(test_dataset, batch_size=64, shuffle=True, num_workers=os.cpu_count())
+    test_dataloader  = DataLoader(test_dataset, batch_size=64, shuffle=False, num_workers=os.cpu_count())
 
 
     return train_dataloader, val_dataloader, test_dataloader
@@ -150,7 +150,14 @@ class LitNet(pl.LightningModule):
         self.val_loss = []
         self.train_loss = []
         self.best_val = np.inf
-        self.config = config
+        
+        # If no configurations regarding the optimizer are specified, use the default ones
+        try:
+            self.optimizer = Adadelta(self.net.parameters(),
+                                       lr=config["lr"],rho=config["rho"], eps=config["eps"], weight_decay=config["weight_decay"])
+        except:
+                print("Using default optimizer parameters")
+                self.optimizer = Adadelta(self.net.parameters())
         
 
     def forward(self,x):
@@ -210,11 +217,8 @@ class LitNet(pl.LightningModule):
         self.log("test_acc", test_acc, prog_bar=True)
 
     def configure_optimizers(self):
-        optimizer = Adadelta(self.net.parameters(), lr=self.config["lr"],rho=self.config["rho"], eps=self.config["eps"], weight_decay=self.config["weight_decay"])
-        return optimizer
+        return self.optimizer
     
-
-
 
 def main():
     pl.seed_everything(666)
