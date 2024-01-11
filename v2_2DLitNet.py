@@ -13,7 +13,7 @@ import pytorch_lightning as pl
 import time
 import pickle
 import utils
-from utils_mgr import readheavy, get_stft, clip_stft, MelDataset, create_subset
+from utils_mgr import readheavy, get_stft, clip_stft, DataAudio, create_subset
 
 
 print("let's start")
@@ -55,13 +55,13 @@ def import_and_preprocess_data(PATH_DATA="/home/diego/fma/data/"):
         ])
 
     # Create the datasets and the dataloaders
-    train_dataset    = MelDataset(train_set, transform = transforms)
+    train_dataset    = DataAudio(train_set, transform = transforms)
     train_dataloader = DataLoader(train_dataset, batch_size=64, shuffle=True, num_workers=os.cpu_count())
 
-    val_dataset      = MelDataset(val_set, transform = transforms)
+    val_dataset      = DataAudio(val_set, transform = transforms)
     val_dataloader   = DataLoader(val_dataset, batch_size=64, shuffle=True, num_workers=os.cpu_count())
 
-    test_dataset     = MelDataset(test_set, transform = transforms)
+    test_dataset     = DataAudio(test_set, transform = transforms)
     test_dataloader  = DataLoader(test_dataset, batch_size=64, shuffle=True, num_workers=os.cpu_count())
 
 
@@ -105,8 +105,10 @@ class NNET2(nn.Module):
         self.fc = nn.Sequential(
             nn.Linear(256, 300),
             nn.ReLU(),
+            nn.Dropout(p=0.2),
             nn.Linear(300, 150),
             nn.ReLU(),
+            nn.Dropout(p=0.2),
             nn.Linear(150, 8),
             nn.Softmax(dim=1)
         )
@@ -251,7 +253,7 @@ def main():
 
 
     # I think that Trainer automatically takes last checkpoint.
-    trainer = pl.Trainer(max_epochs=100, check_val_every_n_epoch=5, log_every_n_steps=1, 
+    trainer = pl.Trainer(max_epochs=3, check_val_every_n_epoch=3, log_every_n_steps=1, 
                          deterministic=True,callbacks=[early_stop_callback], ) # profiler="simple" remember to add this and make fun plots
     model = LitNet(hyperparameters)
 
