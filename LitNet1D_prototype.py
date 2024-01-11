@@ -74,56 +74,61 @@ def import_and_preprocess_data(PATH_DATA="/home/diego/fma/data/"):
 
 
 # Remember to add initialisation of weights
-class NNET1D(nn.Module):
-        
-    def __init__(self):
-        super(NNET1D, self).__init__()
-        
-        
-        self.c1 = nn.Sequential(
-            nn.Conv1d(in_channels=1, out_channels=256,kernel_size=4),
-            nn.BatchNorm1d(256),
-            nn.ReLU(),
-            nn.Dropout(p=0.2)
-        )
+class Block1d(nn.Module):
 
-        self.c2 = nn.Sequential(
-            nn.Conv1d(in_channels=256, out_channels=256, kernel_size=4,padding=2),
-            nn.BatchNorm1d(256),
-            nn.ReLU(),
-            nn.Dropout(p=0.2)
-        )
-
-        self.c3 = nn.Sequential(
-            nn.Conv1d(in_channels=256, out_channels=256, kernel_size=4,padding=1),
-            nn.BatchNorm1d(256),
-            nn.ReLU(),
-            nn.Dropout(p=0.2)
-        )
-        
-        self.fc = nn.Sequential(
-            nn.Linear(2048, 300),
-            nn.ReLU(),
-            nn.Dropout(p=0.2),
-            nn.Linear(300, 150),
-            nn.ReLU(),
-            nn.Dropout(p=0.2),
-            nn.Linear(150, 8),
-            nn.Softmax(dim=1)
+    def __init__(self, in_channels, out_channels, kernel_size, stride, padding):
+        super().__init__()
+        self.block = nn.Sequential(
+            nn.Conv1d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, stride=stride, padding=padding),
+            nn.BatchNorm1d(out_channels),
+            nn.ReLU(inplace = True)
         )
 
     def forward(self, x):
-        c1 = self.c1(x)
-        c2 = self.c2(c1)
-        c3 = self.c3(c2)
-        x = c1 + c3
+        return self.block(x)
 
-        max_pool = F.max_pool1d(x, kernel_size=125)
-        avg_pool = F.avg_pool1d(x, kernel_size=125)
-        x = max_pool + avg_pool
-        x = torch.flatten(x,start_dim = 1)
-        x = self.fc(x)
-        return x 
+
+class ConvBlock1d(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.block = nn.Sequential(
+            Block1d(in_channels=1, out_channels=16, kernel_size=256, stride=64, padding=128),
+            nn.MaxPool1d(kernel_size=4, stride=4),
+            Block1d(in_channels=16, out_channels=32, kernel_size=32, stride=2, padding=16),
+            nn.MaxPool1d(kernel_size=2, stride=2),
+            Block1d(in_channels=32, out_channels=64, kernel_size=16, stride=2, padding=8),
+            nn.MaxPool1d(kernel_size=2, stride=2),
+            Block1d(in_channels=64, out_channels=128, kernel_size=8, stride=2, padding=4)
+        )
+
+    def forward(self, x):
+        return self.block(x) # [128,1,65]
+    
+
+class Baseline1d(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.conv_block = ConvBlock1d()
+        self.avg_pool = nn.MaxPool1d(kernel_size=64)
+        self.max_pool = nn.AvgPool1d(kernel_size=64)
+        self.classifier = nn.Sequential(
+            nn.Linear(256,128),
+            nn.ReLU(inplace=True),
+            nn.Dropout(p=0.2),
+            nn.Linear(128,64),
+            nn.ReLU(inplace=True),
+            nn.Dropout(p=0.2),
+            nn.Linear(64,8)
+        )
+        
+    def forward(self, x):
+        x = self.conv_block(x) # [128, 64]
+        x_avg = self.avg_pool(x) # [128, 1]
+        x_max = self.max_pool(x) # [128, 1]
+        x = torch.cat([x_avg, x_max], dim = 1) # [256, 1]
+        return self.classifier(x.reshape((x.shape[0], -1)))
+    
+
 
 
 
@@ -138,7 +143,28 @@ class LitNet(pl.LightningModule):
         
         print('Network initialized')
         
-        self.net = NNET1D()
+        self.net = Baseline1d()
+    def __init__(self):
+        super().__init__()
+        self.conv_block = ConvBlock1d()
+        self.avg_pool = nn.MaxPool1d(kernel_size=64)
+        self.max_pool = nn.AvgPool1d(kernel_size=64)
+        self.classifier = nn.Sequential(
+            nn.Linear(256,128),
+            nn.ReLU(inplace=True),
+            nn.Dropout(p=0.2),
+            nn.Linear(128,64),
+            nn.ReLU(inplace=True),
+            nn.Dropout(p=0.2),
+            nn.Linear(64,8)
+        )
+        
+    def forward(self, x):
+        x = self.conv_block(x) # [128, 64]
+        x_avg = self.avg_pool(x) # [128, 1]
+        x_max = self.max_pool(x) # [128, 1]
+        x = torch.cat([x_avg, x_max], dim = 1) # [256, 1]
+        return self.classifier(x.reshape((x.shape[0], -1)))()
         self.val_loss = []
         self.train_loss = []
         self.best_val = np.inf
@@ -194,26 +220,25 @@ class LitNet(pl.LightningModule):
         return optimizer
     
 
-    
 
-def main():
-    pl.seed_everything(666)
-  
-    # Set the hyperparameters in the config dictionary
-    # Parameters found with Optuna. Find a way to automatically import this
-    
+def load_optuna( file_path = "./trial.pickle"):
     # Specify the path to the pickle file
-    file_path = "./trial.pickle"
+
 
     # Open the pickle file in read mode
     with open(file_path, "rb") as file:
         # Load the data from the pickle file
         best_optuna = pickle.load(file)
     
-    best_optuna.params["lr"] = 0.01 #changing learning rate
+    #best_optuna.params["lr"] = 0.01 #changing learning rate
     hyperparameters = best_optuna.params
     
+    return hyperparameters
+ 
 
+def main():
+    pl.seed_everything(666)
+      
     # Define the EarlyStopping callback
     early_stop_callback = pl.callbacks.EarlyStopping(
         monitor='val_loss',  # Monitor the validation loss
