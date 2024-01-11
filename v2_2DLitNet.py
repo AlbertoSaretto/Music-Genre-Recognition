@@ -21,7 +21,7 @@ print("let's start")
 ##tensorboard --logdir=lightning_logs/ 
 # to visualize logs
 
-def import_and_preprocess_data():
+def import_and_preprocess_data(architecture_type="1D"):
     # Load metadata and features.
     tracks = utils.load('data/fma_metadata/tracks.csv')
 
@@ -55,14 +55,14 @@ def import_and_preprocess_data():
         ])
 
     # Create the datasets and the dataloaders
-    train_dataset    = DataAudio(train_set, transform = transforms)
+    train_dataset    = DataAudio(train_set, transform = transforms,type=architecture_type)
     train_dataloader = DataLoader(train_dataset, batch_size=64, shuffle=True, num_workers=os.cpu_count())
 
-    val_dataset      = DataAudio(val_set, transform = transforms)
+    val_dataset      = DataAudio(val_set, transform = transforms,type=architecture_type)
     val_dataloader   = DataLoader(val_dataset, batch_size=64, shuffle=False, num_workers=os.cpu_count())
 
     test_dataset     = DataAudio(test_set, transform = transforms)
-    test_dataloader  = DataLoader(test_dataset, batch_size=64, shuffle=False, num_workers=os.cpu_count())
+    test_dataloader  = DataLoader(test_dataset, batch_size=64, shuffle=False, num_workers=os.cpu_count(),type=architecture_type)
 
 
     return train_dataloader, val_dataloader, test_dataloader
@@ -155,9 +155,12 @@ class LitNet(pl.LightningModule):
         try:
             self.optimizer = Adadelta(self.net.parameters(),
                                        lr=config["lr"],rho=config["rho"], eps=config["eps"], weight_decay=config["weight_decay"])
+            print("loaded parameters from pickle")
+            print("optimzier parameters:", self.optimizer)
         except:
                 print("Using default optimizer parameters")
                 self.optimizer = Adadelta(self.net.parameters())
+                print("optimzier parameters:", self.optimizer)
         
 
     def forward(self,x):
@@ -255,10 +258,10 @@ def main():
     trainer = pl.Trainer(max_epochs=20, check_val_every_n_epoch=1, log_every_n_steps=1, 
                          deterministic=True,callbacks=[early_stop_callback], ) # profiler="simple" remember to add this and make fun plots
     
-    #hyperparameters = load_optuna()
-    #model = LitNet(hyperparameters)
+    hyperparameters = load_optuna("./trailv2.pickle")
+    model = LitNet(hyperparameters)
     
-    model = LitNet()
+    #model = LitNet()
 
     """
     # Load model weights from checkpoint
@@ -267,7 +270,8 @@ def main():
     model.load_state_dict(checkpoint['state_dict'])
     """
 
-    train_dataloader, val_dataloader, test_dataloader = import_and_preprocess_data()
+    train_dataloader, val_dataloader, test_dataloader = import_and_preprocess_data(architecture_type="2D")
+    print("data shape",train_dataloader.dataset.x.shape)
     trainer.fit(model, train_dataloader, val_dataloader)
     trainer.test(model=model,dataloaders=test_dataloader,verbose=True)
 
