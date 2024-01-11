@@ -267,9 +267,9 @@ def main(test=False,n_train=1):
     model = LitNet(hyperparameters)
 
     # Load model weights from checkpoint
-    CKPT_PATH = "./lightning_logs/version_4/checkpoints/epoch=19-step=2380.ckpt"
-    checkpoint = torch.load(CKPT_PATH)
-    model.load_state_dict(checkpoint['state_dict'])
+    #CKPT_PATH = "./lightning_logs/version_6/checkpoints/epoch=24-step=2975.ckpt"
+    #checkpoint = torch.load(CKPT_PATH)
+    #model.load_state_dict(checkpoint['state_dict'])
 
     if test==False:
         train_dataloader, val_dataloader = import_and_preprocess_data(config=hyperparameters, n_train=n_train)
@@ -281,4 +281,4 @@ def main(test=False,n_train=1):
 
 
 if __name__ == "__main__":
-    main(test=False,n_train=3)
+    main(test=False,n_train=5)

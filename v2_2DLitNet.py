@@ -1,31 +1,19 @@
-import IPython.display as ipd
 import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-import sklearn as skl
-import sklearn.utils, sklearn.preprocessing, sklearn.decomposition, sklearn.svm
-import librosa
-import librosa.display
-import os
-import pytorch_lightning as pl
-import os 
-from torch.optim import Adadelta
-
-
 import torchvision.transforms.v2 as v2
-import torch
-from torchvision.transforms import Compose, ToTensor
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import Dataset, DataLoader
-import warnings
-
-import utils
-import utils_mgr
-from utils_mgr import getAudio
-
+from torch.utils.data import DataLoader
+import os 
+from torch.optim import Adadelta
+from tqdm import tqdm
+import gc
+import optuna
+import pytorch_lightning as pl
+import time
 import pickle
+import utils
+from utils_mgr import readheavy, get_stft, clip_stft, MelDataset, create_subset
 
 
 print("let's start")
@@ -37,13 +25,15 @@ def import_and_preprocess_data(PATH_DATA="/home/diego/fma/data/"):
     # Load metadata and features.
     tracks = utils.load(PATH_DATA + 'fma_metadata/tracks.csv')
 
+    #Check tracks format
+    print("track shape",tracks.shape)
 
     #Select the desired subset among the entire dataset
     sub = 'small'
     raw_subset = tracks[tracks['set', 'subset'] <= sub] 
     
     #Creation of clean subset for the generation of training, test and validation sets
-    meta_subset= utils_mgr.create_subset(raw_subset)
+    meta_subset= create_subset(raw_subset)
 
     # Remove corrupted files
     corrupted = [98565, 98567, 98569, 99134, 108925, 133297]
@@ -57,74 +47,98 @@ def import_and_preprocess_data(PATH_DATA="/home/diego/fma/data/"):
 
     # Standard transformations for images
     # Mean and std are computed on one file of the training set
-    transforms = v2.Compose([torch.Tensor])
+    transforms = v2.Compose([v2.ToTensor(),
+        v2.RandomResizedCrop(size=(128,513), antialias=True), 
+        v2.RandomHorizontalFlip(p=0.5),
+        v2.ToDtype(torch.float32, scale=True),
+        v2.Normalize(mean=[1.0784853], std=[4.0071154]),
+        ])
 
     # Create the datasets and the dataloaders
-    train_dataset    = utils_mgr.DataAudio(train_set, transform = transforms)
+    train_dataset    = MelDataset(train_set, transform = transforms)
     train_dataloader = DataLoader(train_dataset, batch_size=64, shuffle=True, num_workers=os.cpu_count())
 
-    val_dataset      = utils_mgr.DataAudio(val_set, transform = transforms)
+    val_dataset      = MelDataset(val_set, transform = transforms)
     val_dataloader   = DataLoader(val_dataset, batch_size=64, shuffle=True, num_workers=os.cpu_count())
 
-    test_dataset     = utils_mgr.DataAudio(test_set, transform = transforms)
+    test_dataset     = MelDataset(test_set, transform = transforms)
     test_dataloader  = DataLoader(test_dataset, batch_size=64, shuffle=True, num_workers=os.cpu_count())
 
 
     return train_dataloader, val_dataloader, test_dataloader
 
 
-# Remember to add initialisation of weights
-class NNET1D(nn.Module):
+class NNET2(nn.Module):
         
-    def __init__(self):
-        super(NNET1D, self).__init__()
+    def __init__(self,initialisation="xavier"):
+        super(NNET2, self).__init__()
         
         
         self.c1 = nn.Sequential(
-            nn.Conv1d(in_channels=1, out_channels=256,kernel_size=4),
-            nn.BatchNorm1d(256),
+            nn.Conv2d(in_channels=1, out_channels=256,kernel_size=(4,513)),
+            nn.BatchNorm2d(256),
             nn.ReLU(),
-            nn.Dropout(p=0.2)
+            nn.Dropout2d(.2)
         )
 
         self.c2 = nn.Sequential(
-            nn.Conv1d(in_channels=256, out_channels=256, kernel_size=4,padding=2),
-            nn.BatchNorm1d(256),
+            nn.Conv2d(in_channels=256, out_channels=256, kernel_size=(4, 1),padding=(2,0)),
+            nn.BatchNorm2d(256),
             nn.ReLU(),
-            nn.Dropout(p=0.2)
+            nn.Dropout2d(.2)
         )
 
         self.c3 = nn.Sequential(
-            nn.Conv1d(in_channels=256, out_channels=256, kernel_size=4,padding=1),
-            nn.BatchNorm1d(256),
+            nn.Conv2d(in_channels=256, out_channels=256, kernel_size=(4, 1),padding=(1,0)),
+            nn.BatchNorm2d(256),
             nn.ReLU(),
-            nn.Dropout(p=0.2)
+            nn.Dropout2d(.2)
         )
         
+        self.c4 = nn.Sequential(
+            nn.Conv2d(in_channels=256, out_channels=256, kernel_size=(4, 1)),
+            nn.BatchNorm2d(256),
+            nn.ReLU()
+        )
+        
+
         self.fc = nn.Sequential(
-            nn.Linear(2048, 300),
+            nn.Linear(256, 300),
             nn.ReLU(),
-            nn.Dropout(p=0.2),
             nn.Linear(300, 150),
             nn.ReLU(),
-            nn.Dropout(p=0.2),
             nn.Linear(150, 8),
             nn.Softmax(dim=1)
         )
+    """
+       if self.initialisation == "xavier":
+            self.reset_parameters()
 
-    def forward(self, x):
+        elif self.initialisation == "model_parameters":
+            qui voglio assicurarmi che se non ho un modello salvato, allora lo inizializzo con xavier
+            altrimenti uso i parametri del modello salvato
+
+    def reset_parameters(self):
+        for module in self.modules():
+            if isinstance(module, nn.Conv2d) or isinstance(module, nn.Linear):
+                nn.init.xavier_uniform_(module.weight)
+                if module.bias is not None:
+                    nn.init.constant_(module.bias, 0.0)
+
+    """
+    def forward(self,x):
+        
         c1 = self.c1(x)
         c2 = self.c2(c1)
         c3 = self.c3(c2)
         x = c1 + c3
-
-        max_pool = F.max_pool1d(x, kernel_size=125)
-        avg_pool = F.avg_pool1d(x, kernel_size=125)
+        max_pool = F.max_pool2d(x, kernel_size=(125,1))
+        avg_pool = F.avg_pool2d(x, kernel_size=(125,1))
         x = max_pool + avg_pool
-        x = torch.flatten(x,start_dim = 1)
-        x = self.fc(x)
+        #print("max pooled shape",x.shape)
+        #x = self.c4(x)
+        x = self.fc(x.view(x.size(0), -1)) # maybe I should use flatten instead of view
         return x 
-
 
 
 # Define a LightningModule (nn.Module subclass)
@@ -138,7 +152,7 @@ class LitNet(pl.LightningModule):
         
         print('Network initialized')
         
-        self.net = NNET1D()
+        self.net = NNET2()
         self.val_loss = []
         self.train_loss = []
         self.best_val = np.inf
@@ -165,7 +179,6 @@ class LitNet(pl.LightningModule):
         # At the end of validation, the model goes back to training mode and gradients are enabled.
         x_batch = batch[0]
         label_batch = batch[1]
-
         out = self.net(x_batch)
         loss = F.cross_entropy(out, label_batch)
 
@@ -189,12 +202,25 @@ class LitNet(pl.LightningModule):
         self.log("val_loss", loss.item(), prog_bar=True)
         self.log("val_acc", val_acc, prog_bar=True)
 
+
+    def test_step(self, batch, batch_idx):
+        # this is the test loop
+        x_batch = batch[0]
+        label_batch = batch[1]
+        out = self.net(x_batch)
+        loss = F.cross_entropy(out, label_batch)
+
+        test_acc = np.sum(np.argmax(label_batch.detach().cpu().numpy(), axis=1) == np.argmax(out.detach().cpu().numpy(), axis=1)) / len(label_batch)
+
+        self.log("test_loss", loss.item(), prog_bar=True)
+        self.log("test_acc", test_acc, prog_bar=True)
+
     def configure_optimizers(self):
         optimizer = Adadelta(self.net.parameters(), lr=self.config["lr"],rho=self.config["rho"], eps=self.config["eps"], weight_decay=self.config["weight_decay"])
         return optimizer
     
 
-    
+
 
 def main():
     pl.seed_everything(666)
@@ -236,7 +262,7 @@ def main():
     model.load_state_dict(checkpoint['state_dict'])
     """
 
-    train_dataloader, val_dataloader, test_dataloader = import_and_preprocess_data(PATH_DATA="Data/")
+    train_dataloader, val_dataloader, test_dataloader = import_and_preprocess_data()
     trainer.fit(model, train_dataloader, val_dataloader)
     trainer.test(model=model,dataloaders=test_dataloader,verbose=True)
 
