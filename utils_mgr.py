@@ -9,7 +9,8 @@ from sklearn.preprocessing import LabelEncoder
 import time
 from tqdm import tqdm
 import warnings
-
+import h5py
+import os
 
 
 #Function to extract audio signal from .mp3 file
@@ -186,15 +187,13 @@ class DataAudio(Dataset):
         #Select type of input
         self.type = type
 
-
-
     def __len__(self):
 
         return len(self.track_ids)
 
 
     def create_input(self, i):
-
+      
         # Get audio
 
         # load audio track
@@ -207,14 +206,14 @@ class DataAudio(Dataset):
         audio = audio[start:start+2**18]
         
         if self.type ==  "2D":
-
+            
             #Get 2D spectrogram
             stft = np.abs(librosa.stft(audio, n_fft=4096, hop_length=2048))
             
             mel = librosa.feature.melspectrogram(sr=sr, S=stft**2, n_mels=513)[:,:128]
             mel = librosa.power_to_db(mel).T
             return mel
-        
+    
         return audio[np.newaxis,:]
 
 
@@ -228,7 +227,7 @@ class DataAudio(Dataset):
 
         if self.transform:
             x = self.transform(x)
-
+           
         return x,y
 
 
@@ -266,3 +265,64 @@ def pca_transform(clips, n_components=0.99):
     clips[:,0] = np.split(X_, clips.shape[0], axis=0)
 
     return clips
+
+
+
+class DataAudioH5(Dataset):
+
+    def __init__(self, dataset_folder="./h5_experimentation/", dataset_type="train", transform=None,input_type="2D"):
+        
+        self.x = h5py.File(os.path.join(dataset_folder, f"{dataset_type}_x.h5"),"r")[f"{dataset_type}"]
+        self.y = h5py.File(os.path.join(dataset_folder, f"{dataset_type}_y.h5"),"r")[f"{dataset_type}"]
+        self.transform = transform
+        #Select type of input
+        self.type = input_type
+
+    def __len__(self):
+
+        return self.x.len()
+
+    def create_input(self, audio,sr=22050):
+
+        """
+        This function takes an audio clip and creates the input for the model
+        """
+      
+        # Get audio
+
+        # load audio track
+        #with warnings.catch_warnings():
+        #    warnings.simplefilter('ignore')
+
+        #Select random clip from audio
+        start = np.random.randint(0, (audio.shape[0]-2**18))
+        audio = audio[start:start+2**18]
+        
+        if self.type ==  "2D":
+            
+            #Get 2D spectrogram
+            stft = np.abs(librosa.stft(audio, n_fft=4096, hop_length=2048))
+            
+            mel = librosa.feature.melspectrogram(sr=sr, S=stft**2, n_mels=513)[:,:128]
+            mel = librosa.power_to_db(mel).T
+            return mel
+    
+        return audio[np.newaxis,:]
+
+
+
+    def __getitem__(self, idx):
+
+        # get input and label
+
+        audio = self.x[idx]
+        x = self.create_input(audio)
+        y = self.y[idx]
+
+        if self.transform:
+            x = self.transform(x)
+           
+        return x,y
+
+
+    
