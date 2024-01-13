@@ -204,9 +204,9 @@ class DataAudio(Dataset):
         #Select random clip from audio
         start = np.random.randint(0, (audio.shape[0]-2**18))
         audio = audio[start:start+2**18]
-        
-        if self.type ==  "2D":
-            
+                    
+        if(self.type=="2D"):
+          
             #Get 2D spectrogram
             stft = np.abs(librosa.stft(audio, n_fft=4096, hop_length=2048))
             
