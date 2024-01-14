@@ -273,14 +273,14 @@ def main():
     
     # Uncomment the following to load Optuna hyperparameters
 
-    #hyperparameters = load_optuna("./trialv2.pickle")
-    #model = LitNet(hyperparameters)
+
+    hyperparameters = load_optuna("./trialv2.pickle")
+    model = LitNet(hyperparameters)
     
     # Comment this if you want to load params with Optuna
-    model = LitNet(initialisation="xavier")
+    #model = LitNet(initialisation="xavier")
 
-    
-    # Load model weights from checkpoint
+  # Load model weights from checkpoint
     # Comment/uncomment this three lines
     #CKPT_PATH = "./lightning_logs/version_4/checkpoints/epoch=69-step=7000.ckpt"
     #checkpoint = torch.load(CKPT_PATH)
