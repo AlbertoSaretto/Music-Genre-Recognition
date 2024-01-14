@@ -23,7 +23,7 @@ import warnings
 
 import utils
 import utils_mgr
-from utils_mgr import getAudio
+from utils_mgr import getAudio, DataAudio
 
 import pickle
 
@@ -33,9 +33,9 @@ print("let's start")
 ##tensorboard --logdir=lightning_logs/ 
 # to visualize logs
 
-def import_and_preprocess_data(PATH_DATA="/home/diego/fma/data/"):
+def import_and_preprocess_data(archtecture_type = "1D"):
     # Load metadata and features.
-    tracks = utils.load(PATH_DATA + 'fma_metadata/tracks.csv')
+    tracks = utils.load('data/fma_metadata/tracks.csv')
 
 
     #Select the desired subset among the entire dataset
@@ -57,22 +57,24 @@ def import_and_preprocess_data(PATH_DATA="/home/diego/fma/data/"):
 
     # Standard transformations for images
     # Mean and std are computed on one file of the training set
-    transforms = v2.Compose([torch.Tensor])
+    transforms = v2.Compose([torch.Tensor,
+                            lambda x: x/0.21469156])
 
     # Create the datasets and the dataloaders
-    train_dataset    = utils_mgr.DataAudio(train_set, transform = transforms)
-    train_dataloader = DataLoader(train_dataset, batch_size=64, shuffle=True, num_workers=os.cpu_count())
+    train_dataset    = DataAudio(train_set, transform = transforms, type=archtecture_type)
+    train_dataloader = DataLoader(train_dataset, batch_size=64, shuffle=True)
 
-    val_dataset      = utils_mgr.DataAudio(val_set, transform = transforms)
-    val_dataloader   = DataLoader(val_dataset, batch_size=64, shuffle=True, num_workers=os.cpu_count())
+    val_dataset      = DataAudio(val_set, transform = transforms, type=archtecture_type)
+    val_dataloader   = DataLoader(val_dataset, batch_size=64, shuffle=False)
 
-    test_dataset     = utils_mgr.DataAudio(test_set, transform = transforms)
-    test_dataloader  = DataLoader(test_dataset, batch_size=64, shuffle=True, num_workers=os.cpu_count())
+    test_dataset     = DataAudio(test_set, transform = transforms, type=archtecture_type)
+    test_dataloader  = DataLoader(test_dataset, batch_size=64, shuffle=False)
 
 
     return train_dataloader, val_dataloader, test_dataloader
 
 
+'''
 # Remember to add initialisation of weights
 class Block1d(nn.Module):
 
@@ -92,7 +94,7 @@ class ConvBlock1d(nn.Module):
     def __init__(self):
         super().__init__()
         self.block = nn.Sequential(
-            Block1d(in_channels=1, out_channels=16, kernel_size=256, stride=64, padding=128),
+            Block1d(in_channels=1, out_channels=16, kernel_size=128, stride=32, padding=64),
             nn.MaxPool1d(kernel_size=4, stride=4),
             Block1d(in_channels=16, out_channels=32, kernel_size=32, stride=2, padding=16),
             nn.MaxPool1d(kernel_size=2, stride=2),
@@ -127,7 +129,83 @@ class Baseline1d(nn.Module):
         x_max = self.max_pool(x) # [128, 1]
         x = torch.cat([x_avg, x_max], dim = 1) # [256, 1]
         return self.classifier(x.reshape((x.shape[0], -1)))
-    
+'''
+
+# Remember to add initialisation of weights
+class NNET1D(nn.Module):
+        
+    def __init__(self):
+        super(NNET1D, self).__init__()
+        
+        
+        self.c1 = nn.Sequential(
+            nn.Conv1d(in_channels=1, out_channels=16, kernel_size=128, stride=32, padding=64),
+            nn.BatchNorm1d(16),
+            nn.ReLU(inplace = True),
+            nn.MaxPool1d(kernel_size=4, stride=4),
+            nn.Dropout(p=0.2),
+        )
+
+        self.c2 = nn.Sequential(
+            nn.Conv1d(in_channels=16, out_channels=32, kernel_size=32, stride=2, padding=16),
+            nn.BatchNorm1d(32),
+            nn.ReLU(inplace = True),
+            nn.MaxPool1d(kernel_size=2, stride=2),
+            nn.Dropout(p=0.2)
+        )
+
+        self.c3 = nn.Sequential(
+            nn.Conv1d(in_channels=32, out_channels=64, kernel_size=16, stride=2, padding=1),
+            nn.BatchNorm1d(64),
+            nn.ReLU(inplace = True),
+            nn.MaxPool1d(kernel_size=2, stride=2),
+            nn.Dropout(p=0.2)
+        )
+        
+        #Trying to add 4th convolutional block
+        self.c4 = nn.Sequential(
+            nn.Conv1d(in_channels=64, out_channels=128, kernel_size=8,stride=2, padding=4),
+            nn.BatchNorm1d(256),
+            nn.ReLU(inplace = True),
+            nn.Dropout(p=0.2)
+        )
+        
+
+        self.fc = nn.Sequential(
+            nn.Linear(256, 128), 
+            nn.ReLU(inplace = True),
+            nn.Dropout(p=0.2),
+            nn.Linear(128, 64),
+            nn.ReLU(inplace = True),
+            nn.Dropout(p=0.2),
+            nn.Linear(64, 8),
+            nn.Softmax(dim=1)
+        )
+
+    def forward(self, x):
+
+        c1 = self.c1(x)
+        
+        c2 = self.c2(c1)
+        
+        c3 = self.c3(c2)
+        
+        c4 = self.c4(c3)
+
+        max_pool = F.max_pool1d(x, kernel_size=125)
+        avg_pool = F.avg_pool1d(x, kernel_size=125)
+
+        #Concatenate max and average pooling
+        x = torch.cat([max_pool, avg_pool], dim = 1) 
+
+        
+        # x dimensions are [batch_size, channels, length, width]
+        # All dimensions are flattened except batch_size  
+        x = torch.flatten(x, start_dim=1)
+
+        x = self.fc(x)
+        return x 
+
 
 
 
@@ -136,7 +214,7 @@ class Baseline1d(nn.Module):
 # A LightningModule defines a full system (ie: a GAN, autoencoder, BERT or a simple Image Classifier).
 class LitNet(pl.LightningModule):
     
-    def __init__(self, config: dict):
+    def __init__(self, config=None):
        
         super().__init__()
         # super(NNET2, self).__init__() ? 
@@ -144,32 +222,19 @@ class LitNet(pl.LightningModule):
         print('Network initialized')
         
         self.net = Baseline1d()
-    def __init__(self):
-        super().__init__()
-        self.conv_block = ConvBlock1d()
-        self.avg_pool = nn.MaxPool1d(kernel_size=64)
-        self.max_pool = nn.AvgPool1d(kernel_size=64)
-        self.classifier = nn.Sequential(
-            nn.Linear(256,128),
-            nn.ReLU(inplace=True),
-            nn.Dropout(p=0.2),
-            nn.Linear(128,64),
-            nn.ReLU(inplace=True),
-            nn.Dropout(p=0.2),
-            nn.Linear(64,8)
-        )
-        
-    def forward(self, x):
-        x = self.conv_block(x) # [128, 64]
-        x_avg = self.avg_pool(x) # [128, 1]
-        x_max = self.max_pool(x) # [128, 1]
-        x = torch.cat([x_avg, x_max], dim = 1) # [256, 1]
-        return self.classifier(x.reshape((x.shape[0], -1)))()
         self.val_loss = []
         self.train_loss = []
         self.best_val = np.inf
-        self.config = config
         
+
+    # If no configurations regarding the optimizer are specified, use the default ones
+        try:
+            self.optimizer = Adadelta(self.net.parameters(),
+                                       lr=config["lr"],rho=config["rho"], eps=config["eps"], weight_decay=config["weight_decay"])
+        except:
+                print("Using default optimizer parameters")
+                self.optimizer = Adadelta(self.net.parameters())
+
 
     def forward(self,x):
         return self.net(x)
@@ -216,8 +281,8 @@ class LitNet(pl.LightningModule):
         self.log("val_acc", val_acc, prog_bar=True)
 
     def configure_optimizers(self):
-        optimizer = Adadelta(self.net.parameters(), lr=self.config["lr"],rho=self.config["rho"], eps=self.config["eps"], weight_decay=self.config["weight_decay"])
-        return optimizer
+
+        return self.optimizer
     
 
 
@@ -250,10 +315,14 @@ def main():
 
 
     # I think that Trainer automatically takes last checkpoint.
-    trainer = pl.Trainer(max_epochs=100, check_val_every_n_epoch=5, log_every_n_steps=1, 
+    trainer = pl.Trainer(max_epochs=20, check_val_every_n_epoch=2, log_every_n_steps=1, 
                          deterministic=True,callbacks=[early_stop_callback], ) # profiler="simple" remember to add this and make fun plots
-    model = LitNet(hyperparameters)
-
+    
+    #hyperparameters = load_optuna()
+    #model = LitNet(hyperparameters)
+    
+    model = LitNet()
+   
     """
     # Load model weights from checkpoint
     CKPT_PATH = "./lightning_logs/version_1/checkpoints/epoch=29-step=3570.ckpt"
@@ -261,7 +330,7 @@ def main():
     model.load_state_dict(checkpoint['state_dict'])
     """
 
-    train_dataloader, val_dataloader, test_dataloader = import_and_preprocess_data(PATH_DATA="Data/")
+    train_dataloader, val_dataloader, test_dataloader = import_and_preprocess_data()
     trainer.fit(model, train_dataloader, val_dataloader)
     trainer.test(model=model,dataloaders=test_dataloader,verbose=True)
 
