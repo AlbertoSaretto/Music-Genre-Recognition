@@ -228,7 +228,7 @@ class DataAudio(Dataset):
             x = self.create_input(idx)
             y = self.label[idx] 
         except:
-            print("\nNon riesco a caricare la track numero ", self.track_ids[idx], " Vado con la prossima\n")
+            print("\nNot able to load track number ", self.track_ids[idx], " Loading next one\n")
             x = self.create_input(idx+1)
             y = self.label[idx]
         
