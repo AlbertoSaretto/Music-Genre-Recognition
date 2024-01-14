@@ -150,12 +150,12 @@ class NNET2(nn.Module):
 # A LightningModule defines a full system (ie: a GAN, autoencoder, BERT or a simple Image Classifier).
 class LitNet(pl.LightningModule):
     
-    def __init__(self, config=None):
+    def __init__(self, config=None,initialisation=None):
        
         super().__init__()       
         print('Network initialized')
         
-        self.net = NNET2()
+        self.net = NNET2(initialisation)
         self.best_val = np.inf
         
         # If no configurations regarding the optimizer are specified, use the default ones
@@ -264,24 +264,27 @@ def main():
 
     """
     Trainer can start from already existing checkpoint, but we find it more practical to comment/uncomment the lines below
-    (see CKPT_PATH part)
+    (see CKPT_PATH part).
+
+    Use trainer to set number of epochs and callbacks.
     """
     trainer = pl.Trainer(max_epochs=100, check_val_every_n_epoch=5, log_every_n_steps=1, 
                          deterministic=True,callbacks=[early_stop_callback], ) # profiler="simple" add this to check where time is spent
     
     # Uncomment the following to load Optuna hyperparameters
 
-    #hyperparameters = load_optuna("./trialv2.pickle")
-    #model = LitNet(hyperparameters)
+    hyperparameters = load_optuna("./trialv2.pickle")
+    model = LitNet(hyperparameters)
     
     # Comment this if you want to load params with Optuna
-    model = LitNet()
+    #model = LitNet(initialisation="xavier")
 
     
     # Load model weights from checkpoint
-    CKPT_PATH = "./lightning_logs/version_4/checkpoints/epoch=69-step=7000.ckpt"
-    checkpoint = torch.load(CKPT_PATH)
-    model.load_state_dict(checkpoint['state_dict'])
+    # Comment/uncomment this three lines
+    #CKPT_PATH = "./lightning_logs/version_4/checkpoints/epoch=69-step=7000.ckpt"
+    #checkpoint = torch.load(CKPT_PATH)
+    #model.load_state_dict(checkpoint['state_dict'])
     
 
     train_dataloader, val_dataloader, test_dataloader = import_and_preprocess_data(architecture_type="2D")
