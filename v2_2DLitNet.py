@@ -6,14 +6,11 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 import os 
 from torch.optim import Adadelta
-from tqdm import tqdm
-import gc
-import optuna
 import pytorch_lightning as pl
-import time
 import pickle
 import utils
-from utils_mgr import DataAudio, create_subset
+from utils_mgr import DataAudio, create_subset, MinMaxScaler
+import os
 
 
 print("let's start")
@@ -22,11 +19,15 @@ print("let's start")
 # to visualize logs
 
 def import_and_preprocess_data(architecture_type="1D"):
+
+
+    """
+    This function uses metadata contained in tracks.csv to import mp3 files,
+    pass them through DataAudio class and eventually create Dataloaders.  
+    
+    """
     # Load metadata and features.
     tracks = utils.load('data/fma_metadata/tracks.csv')
-
-    #Check tracks format
-    print("track shape",tracks.shape)
 
     #Select the desired subset among the entire dataset
     sub = 'small'
@@ -46,12 +47,17 @@ def import_and_preprocess_data(architecture_type="1D"):
     test_set  = meta_subset[meta_subset["split"] == "test"]
 
     # Standard transformations for images
-    # Mean and std are computed on one file of the training set
+
+    # There are two ways to normalize data: 
+    #   1. Using  v2.Normalize(mean=[1.0784853], std=[4.0071154]). These values are computed with utils_mgr.mean_computer() function.
+    #   2. Using v2.Lambda and MinMaxScaler. This function is implemented in utils_mgr and resambles sklearn homonym function.
+
     transforms = v2.Compose([v2.ToTensor(),
-        v2.RandomResizedCrop(size=(128,513), antialias=True), 
-        v2.RandomHorizontalFlip(p=0.5),
+        v2.RandomResizedCrop(size=(128,513), antialias=True), # Data Augmentation
+        v2.RandomHorizontalFlip(p=0.5), # Data Augmentation
         v2.ToDtype(torch.float32, scale=True),
-        v2.Normalize(mean=[1.0784853], std=[4.0071154]),
+        #v2.Normalize(mean=[1.0784853], std=[4.0071154]),
+        v2.Lambda(lambda x: MinMaxScaler(x)) # see utils_mgr
         ])
 
     # Create the datasets and the dataloaders
@@ -97,7 +103,7 @@ class NNET2(nn.Module):
                
 
         self.fc = nn.Sequential(
-            nn.Linear(256, 300),
+            nn.Linear(512, 300),
             nn.ReLU(),
             nn.Dropout(p=0.2),
             nn.Linear(300, 150),
@@ -106,22 +112,26 @@ class NNET2(nn.Module):
             nn.Linear(150, 8),
             nn.Softmax(dim=1)
         )
-    """
-       if self.initialisation == "xavier":
-            self.reset_parameters()
 
-        elif self.initialisation == "model_parameters":
-            qui voglio assicurarmi che se non ho un modello salvato, allora lo inizializzo con xavier
-            altrimenti uso i parametri del modello salvato
+        # Weights initialisation
+        # if
+        if initialisation == "xavier":
+            print("initialising weights wit Xavier")
+            self.apply(self._init_weights)
+        else:
+            print('Weights not initialised. If previous checkpoint is not loaded, set initialisation = "xavier"')
 
-    def reset_parameters(self):
-        for module in self.modules():
-            if isinstance(module, nn.Conv2d) or isinstance(module, nn.Linear):
-                nn.init.xavier_uniform_(module.weight)
-                if module.bias is not None:
-                    nn.init.constant_(module.bias, 0.0)
 
-    """
+    def _init_weights(self, module):
+        if isinstance(module, torch.nn.Linear):
+            torch.nn.init.xavier_uniform_(module.weight)
+            if module.bias is not None:
+                module.bias.data.zero_()
+        if isinstance(module, torch.nn.Conv2d):
+            torch.nn.init.xavier_uniform_(module.weight)
+            if module.bias is not None:
+                module.bias.data.zero_()
+    
     def forward(self,x):
         
         c1 = self.c1(x) 
@@ -131,24 +141,21 @@ class NNET2(nn.Module):
         max_pool = F.max_pool2d(x, kernel_size=(125,1))
         avg_pool = F.avg_pool2d(x, kernel_size=(125,1))
         x = torch.cat([max_pool,avg_pool],dim=1)
-        x = self.fc(x.view(x.size(0), -1)) # maybe I should use flatten instead of view
+        x = self.fc(x.view(x.size(0), -1)) # Reshape x to fit in linear layers. Equivalent to F.Flatten
         return x 
+
 
 
 # Define a LightningModule (nn.Module subclass)
 # A LightningModule defines a full system (ie: a GAN, autoencoder, BERT or a simple Image Classifier).
 class LitNet(pl.LightningModule):
     
-    def __init__(self, config=None):
+    def __init__(self, config=None,initialisation=None):
        
-        super().__init__()
-        # super(NNET2, self).__init__() ? 
-        
+        super().__init__()       
         print('Network initialized')
         
-        self.net = NNET2()
-        self.val_loss = []
-        self.train_loss = []
+        self.net = NNET2(initialisation)
         self.best_val = np.inf
         
         # If no configurations regarding the optimizer are specified, use the default ones
@@ -172,8 +179,7 @@ class LitNet(pl.LightningModule):
         x_batch = batch[0]
         label_batch = batch[1]
         out = self.net(x_batch)
-        loss = F.cross_entropy(out, label_batch) # Diego nota: aggiungere weights in base a distribuzione classi dataset?
-        self.train_loss.append(loss.item())
+        loss = F.cross_entropy(out, label_batch) 
         return loss
 
     def validation_step(self, batch, batch_idx=None):
@@ -185,14 +191,16 @@ class LitNet(pl.LightningModule):
         label_batch = batch[1]
         out = self.net(x_batch)
         loss = F.cross_entropy(out, label_batch)
-
+        """
+        Validation accuracy is computed as follows.
+        label_batch are the true labels. They are one-hot encoded (eg [1,0,0,0,0,0,0,0]). 
+        out are the predicted labels. They are a 8-dim vector of probabilities.
+        argmax checks what is the index with the highest probability. Each index is related to a Music Genre.
+        If the indexes are equal the classification is correct.
+        
+        """
         val_acc = np.sum(np.argmax(label_batch.detach().cpu().numpy(), axis=1) == np.argmax(out.detach().cpu().numpy(), axis=1)) / len(label_batch)
 
-            
-        #validation_loss = np.append(validation_loss,1 - val_acc)
-        #print(f"accuracy: {val_acc*100} %")
-        
-        # Should I save the model based on loss or on accuracy?7
         """
         LitNet doesnt need to save the model, it is done automatically by pytorch lightning
         if loss.item() < self.best_val:
@@ -200,9 +208,7 @@ class LitNet(pl.LightningModule):
             torch.save(self.net.state_dict(), "saved_models/nnet2/model.pt")
             self.best_val = loss.item()
         """
-
-
-        self.val_loss.append(loss.item())
+        # Saves lighting_logs used in Tensorboard.
         self.log("val_loss", loss.item(), prog_bar=True)
         self.log("val_acc", val_acc, prog_bar=True)
 
@@ -215,7 +221,7 @@ class LitNet(pl.LightningModule):
         loss = F.cross_entropy(out, label_batch)
 
         test_acc = np.sum(np.argmax(label_batch.detach().cpu().numpy(), axis=1) == np.argmax(out.detach().cpu().numpy(), axis=1)) / len(label_batch)
-
+        # Saves lighting_logs to track test loss and accuracy. 
         self.log("test_loss", loss.item(), prog_bar=True)
         self.log("test_acc", test_acc, prog_bar=True)
 
@@ -223,26 +229,29 @@ class LitNet(pl.LightningModule):
         return self.optimizer
     
 
-def load_optuna( file_path = "./trial.pickle"):
-    # Specify the path to the pickle file
+def load_optuna( file_path = "./trial.pickle",lr=None):
 
+    """
+    Use this function to load hyperparameters found with Optuna.
+    These should be saved in a pickle file, containing a dictonary with optimizer's parameters.
+    This is not the 100% correct way of using Optuna, in fact one should use the .db  file that the Optuna study creates.
+    But this works anyway.
 
+    If you want to change the lr to a value other than the one found with Optuna, you can set it in the input of the function.
+    """
     # Open the pickle file in read mode
     with open(file_path, "rb") as file:
         # Load the data from the pickle file
         best_optuna = pickle.load(file)
-    
-    best_optuna.params["lr"] = 0.5 #changing learning rate
-    hyperparameters = best_optuna.params
-    
-    return hyperparameters
+    if lr is not None:
+            
+        best_optuna.params["lr"] = lr #changing learning rate
+
+    return  best_optuna.params
 
 
 def main():
     pl.seed_everything(666)
-  
-    # Set the hyperparameters in the config dictionary
-    # Parameters found with Optuna. Find a way to automatically import this
    
     # Define the EarlyStopping callback
     early_stop_callback = pl.callbacks.EarlyStopping(
@@ -253,22 +262,30 @@ def main():
         mode='min'           # Mode: 'min' if you want to minimize the monitored quantity (e.g., loss)
     )
 
+    """
+    Trainer can start from already existing checkpoint, but we find it more practical to comment/uncomment the lines below
+    (see CKPT_PATH part).
 
-    # I think that Trainer automatically takes last checkpoint.
+    Use trainer to set number of epochs and callbacks.
+    """
     trainer = pl.Trainer(max_epochs=100, check_val_every_n_epoch=5, log_every_n_steps=1, 
-                         deterministic=True,callbacks=[early_stop_callback], ) # profiler="simple" remember to add this and make fun plots
+                         deterministic=True,callbacks=[early_stop_callback], ) # profiler="simple" add this to check where time is spent
     
-    hyperparameters = load_optuna("./trialv2.pickle")
-    model = LitNet(hyperparameters)
-    
-    #model = LitNet()
+    # Uncomment the following to load Optuna hyperparameters
 
-    """
+    #hyperparameters = load_optuna("./trialv2.pickle")
+    #model = LitNet(hyperparameters)
+    
+    # Comment this if you want to load params with Optuna
+    model = LitNet(initialisation="xavier")
+
+    
     # Load model weights from checkpoint
-    CKPT_PATH = "./lightning_logs/version_1/checkpoints/epoch=29-step=3570.ckpt"
-    checkpoint = torch.load(CKPT_PATH)
-    model.load_state_dict(checkpoint['state_dict'])
-    """
+    # Comment/uncomment this three lines
+    #CKPT_PATH = "./lightning_logs/version_4/checkpoints/epoch=69-step=7000.ckpt"
+    #checkpoint = torch.load(CKPT_PATH)
+    #model.load_state_dict(checkpoint['state_dict'])
+    
 
     train_dataloader, val_dataloader, test_dataloader = import_and_preprocess_data(architecture_type="2D")
     print("data shape",train_dataloader.dataset.__getitem__(0)[0].shape)
