@@ -13,38 +13,24 @@ import pytorch_lightning as pl
 import time
 import pickle
 import utils
-from utils_mgr import DataAudio, create_subset
+from utils_mgr import DataAudio, create_subset, DataAudioH5
+import os
 
+"""
+This script requires h5 files. To create them, run create_h5_from_npy.py
+The files should look like this: train_x.h5, train_y.h5, valid_x.h5, valid_y.h5, test_x.h5, test_y.h5
+They are loaded in DataAudioH5 class.
+Set the correct folder in the main function (dataset_folder)
+"""
 
 print("let's start")
 
 ##tensorboard --logdir=lightning_logs/ 
 # to visualize logs
 
-def import_and_preprocess_data(architecture_type="1D"):
-    # Load metadata and features.
-    tracks = utils.load('data/fma_metadata/tracks.csv')
-
-    #Check tracks format
-    print("track shape",tracks.shape)
-
-    #Select the desired subset among the entire dataset
-    sub = 'small'
-    raw_subset = tracks[tracks['set', 'subset'] <= sub] 
+def import_and_preprocess_data(architecture_type="1D",dataset_folder="./h5_experimentation/"):
     
-    #Creation of clean subset for the generation of training, test and validation sets
-    meta_subset= create_subset(raw_subset)
-
-    # Remove corrupted files
-    corrupted = [98565, 98567, 98569, 99134, 108925, 133297]
-    meta_subset = meta_subset[~meta_subset['index'].isin(corrupted)]
-
-    #Split between taining, validation and test set according to original FMA split
-
-    train_set = meta_subset[meta_subset["split"] == "training"]
-    val_set   = meta_subset[meta_subset["split"] == "validation"]
-    test_set  = meta_subset[meta_subset["split"] == "test"]
-
+    
     # Standard transformations for images
     # Mean and std are computed on one file of the training set
     transforms = v2.Compose([v2.ToTensor(),
@@ -55,13 +41,13 @@ def import_and_preprocess_data(architecture_type="1D"):
         ])
 
     # Create the datasets and the dataloaders
-    train_dataset    = DataAudio(train_set, transform = transforms,type=architecture_type)
+    train_dataset    = DataAudioH5(dataset_folder=dataset_folder, dataset_type="train", transform=transforms,input_type=architecture_type)
     train_dataloader = DataLoader(train_dataset, batch_size=64, shuffle=True, num_workers=os.cpu_count())
 
-    val_dataset      = DataAudio(val_set, transform = transforms,type=architecture_type)
+    val_dataset      = DataAudioH5(dataset_folder=dataset_folder, dataset_type="valid", transform=transforms,input_type=architecture_type)
     val_dataloader   = DataLoader(val_dataset, batch_size=64, shuffle=False, num_workers=os.cpu_count())
 
-    test_dataset     = DataAudio(test_set, transform = transforms,type=architecture_type)
+    test_dataset     = DataAudioH5(dataset_folder=dataset_folder, dataset_type="test", transform=transforms,input_type=architecture_type)
     test_dataloader  = DataLoader(test_dataset, batch_size=64, shuffle=False, num_workers=os.cpu_count())
 
 
@@ -97,7 +83,7 @@ class NNET2(nn.Module):
                
 
         self.fc = nn.Sequential(
-            nn.Linear(256, 300),
+            nn.Linear(512, 300),
             nn.ReLU(),
             nn.Dropout(p=0.2),
             nn.Linear(300, 150),
@@ -133,6 +119,7 @@ class NNET2(nn.Module):
         x = torch.cat([max_pool,avg_pool],dim=1)
         x = self.fc(x.view(x.size(0), -1)) # maybe I should use flatten instead of view
         return x 
+
 
 
 # Define a LightningModule (nn.Module subclass)
@@ -255,7 +242,7 @@ def main():
 
 
     # I think that Trainer automatically takes last checkpoint.
-    trainer = pl.Trainer(max_epochs=100, check_val_every_n_epoch=5, log_every_n_steps=1, 
+    trainer = pl.Trainer(max_epochs=1, check_val_every_n_epoch=1, log_every_n_steps=1, 
                          deterministic=True,callbacks=[early_stop_callback], ) # profiler="simple" remember to add this and make fun plots
     
     hyperparameters = load_optuna("./trialv2.pickle")
@@ -270,8 +257,16 @@ def main():
     model.load_state_dict(checkpoint['state_dict'])
     """
 
-    train_dataloader, val_dataloader, test_dataloader = import_and_preprocess_data(architecture_type="2D")
+    train_dataloader, val_dataloader, test_dataloader = import_and_preprocess_data(architecture_type="2D",
+                                                                                   dataset_folder="./h5_experimentation/")
+    
+    
     print("data shape",train_dataloader.dataset.__getitem__(0)[0].shape)
+    print("train length",train_dataloader.dataset.__len__())
+    print("val length",val_dataloader.dataset.__len__())
+    print("test length",test_dataloader.dataset.__len__())
+    
+    
     trainer.fit(model, train_dataloader, val_dataloader)
     trainer.test(model=model,dataloaders=test_dataloader,verbose=True)
 
