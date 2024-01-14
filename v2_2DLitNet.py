@@ -19,6 +19,13 @@ print("let's start")
 # to visualize logs
 
 def import_and_preprocess_data(architecture_type="1D"):
+
+
+    """
+    This function uses metadata contained in tracks.csv to import mp3 files,
+    pass them through DataAudio class and eventually create Dataloaders.  
+    
+    """
     # Load metadata and features.
     tracks = utils.load('data/fma_metadata/tracks.csv')
 
@@ -40,13 +47,17 @@ def import_and_preprocess_data(architecture_type="1D"):
     test_set  = meta_subset[meta_subset["split"] == "test"]
 
     # Standard transformations for images
-    # Mean and std are computed on one file of the training set
+
+    # There are two ways to normalize data: 
+    #   1. Using  v2.Normalize(mean=[1.0784853], std=[4.0071154]). These values are computed with utils_mgr.mean_computer() function.
+    #   2. Using v2.Lambda and MinMaxScaler. This function is implemented in utils_mgr and resambles sklearn homonym function.
+
     transforms = v2.Compose([v2.ToTensor(),
-        v2.RandomResizedCrop(size=(128,513), antialias=True), 
-        v2.RandomHorizontalFlip(p=0.5),
+        v2.RandomResizedCrop(size=(128,513), antialias=True), # Data Augmentation
+        v2.RandomHorizontalFlip(p=0.5), # Data Augmentation
         v2.ToDtype(torch.float32, scale=True),
         #v2.Normalize(mean=[1.0784853], std=[4.0071154]),
-        v2.Lambda(lambda x: MinMaxScaler(x))
+        v2.Lambda(lambda x: MinMaxScaler(x)) # see utils_mgr
         ])
 
     # Create the datasets and the dataloaders
@@ -101,22 +112,26 @@ class NNET2(nn.Module):
             nn.Linear(150, 8),
             nn.Softmax(dim=1)
         )
-    """
-       if self.initialisation == "xavier":
-            self.reset_parameters()
 
-        elif self.initialisation == "model_parameters":
-            qui voglio assicurarmi che se non ho un modello salvato, allora lo inizializzo con xavier
-            altrimenti uso i parametri del modello salvato
+        # Weights initialisation
+        # if
+        if initialisation == "xavier":
+            print("initialising weights wit Xavier")
+            self.apply(self._init_weights)
+        else:
+            print('Weights not initialised. If previous checkpoint is not loaded, set initialisation = "xavier"')
 
-    def reset_parameters(self):
-        for module in self.modules():
-            if isinstance(module, nn.Conv2d) or isinstance(module, nn.Linear):
-                nn.init.xavier_uniform_(module.weight)
-                if module.bias is not None:
-                    nn.init.constant_(module.bias, 0.0)
 
-    """
+    def _init_weights(self, module):
+        if isinstance(module, torch.nn.Linear):
+            torch.nn.init.xavier_uniform_(module.weight)
+            if module.bias is not None:
+                module.bias.data.zero_()
+        if isinstance(module, torch.nn.Conv2d):
+            torch.nn.init.xavier_uniform_(module.weight)
+            if module.bias is not None:
+                module.bias.data.zero_()
+    
     def forward(self,x):
         
         c1 = self.c1(x) 
