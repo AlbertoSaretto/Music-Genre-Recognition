@@ -14,6 +14,7 @@ import time
 import pickle
 import utils
 from utils_mgr import DataAudio, create_subset
+import os
 
 
 print("let's start")
@@ -97,7 +98,7 @@ class NNET2(nn.Module):
                
 
         self.fc = nn.Sequential(
-            nn.Linear(256, 300),
+            nn.Linear(512, 300),
             nn.ReLU(),
             nn.Dropout(p=0.2),
             nn.Linear(300, 150),
@@ -133,6 +134,7 @@ class NNET2(nn.Module):
         x = torch.cat([max_pool,avg_pool],dim=1)
         x = self.fc(x.view(x.size(0), -1)) # maybe I should use flatten instead of view
         return x 
+
 
 
 # Define a LightningModule (nn.Module subclass)
@@ -258,17 +260,17 @@ def main():
     trainer = pl.Trainer(max_epochs=100, check_val_every_n_epoch=5, log_every_n_steps=1, 
                          deterministic=True,callbacks=[early_stop_callback], ) # profiler="simple" remember to add this and make fun plots
     
-    hyperparameters = load_optuna("./trialv2.pickle")
-    model = LitNet(hyperparameters)
+    #hyperparameters = load_optuna("./trialv2.pickle")
+    #model = LitNet(hyperparameters)
     
-    #model = LitNet()
+    model = LitNet()
 
-    """
+    
     # Load model weights from checkpoint
-    CKPT_PATH = "./lightning_logs/version_1/checkpoints/epoch=29-step=3570.ckpt"
+    CKPT_PATH = "./lightning_logs/version_4/checkpoints/epoch=69-step=7000.ckpt"
     checkpoint = torch.load(CKPT_PATH)
     model.load_state_dict(checkpoint['state_dict'])
-    """
+    
 
     train_dataloader, val_dataloader, test_dataloader = import_and_preprocess_data(architecture_type="2D")
     print("data shape",train_dataloader.dataset.__getitem__(0)[0].shape)
