@@ -333,4 +333,104 @@ class DataAudioH5(Dataset):
         return x,y
 
 
+
+class DataAudioH5_colab(Dataset):
+
+    def __init__(self, file_x,file_y,dataset_folder="./h5_experimentation/", dataset_type="train", transform=None,input_type="2D"):
+        
+        self.x = h5py.File(os.path.join(dataset_folder, f"{dataset_type}_x.h5"),"r")[f"{dataset_type}"]
+        self.y = h5py.File(os.path.join(dataset_folder, f"{dataset_type}_y.h5"),"r")[f"{dataset_type}"]
+        self.transform = transform
+        #Select type of input
+        self.type = input_type
+
+    def __len__(self):
+
+        return self.x.len()
+
+    def create_input(self, audio,sr=22050):
+
+        """
+        This function takes an audio clip and creates the input for the model
+        """
+      
+        # Get audio
+
+        # load audio track
+        #with warnings.catch_warnings():
+        #    warnings.simplefilter('ignore')
+
+        #Select random clip from audio
+        start = np.random.randint(0, (audio.shape[0]-2**18))
+        audio = audio[start:start+2**18]
+        
+        if self.type ==  "2D":
+            
+            #Get 2D spectrogram
+            stft = np.abs(librosa.stft(audio, n_fft=4096, hop_length=2048))
+            
+            mel = librosa.feature.melspectrogram(sr=sr, S=stft**2, n_mels=513)[:,:128]
+            mel = librosa.power_to_db(mel).T
+            return mel[np.newaxis,:]
     
+        return audio[np.newaxis,:]
+
+
+
+    def __getitem__(self, idx):
+
+        # get input and label
+
+        audio = self.x[idx]
+        x = self.create_input(audio)
+        y = self.y[idx]
+
+        if self.transform:
+            x = self.transform(x)
+           
+        return x,y
+
+def MinMaxScaler(Tensor):
+    # Applies MinMaxScaler to a tensor as described in sklearn.preprocessing.MinMaxScaler
+    import torch
+    Xmin = torch.min(Tensor)
+    Xmax = torch.max(Tensor)
+    return (Tensor-Xmin)/(Xmax-Xmin)
+
+
+
+
+
+
+def mean_computer_2D_stft(n_train=1):
+    import gc
+    from utils_mgr import get_stft, clip_stft
+    """
+    Compute the mean and std of the 2D dataset
+    """
+           
+    train =  np.load(f"Audio/training_{n_train}.npy", allow_pickle = True)
+    
+    print("getting stft")
+    stft = get_stft(train)
+   
+    del train
+    gc.collect()
+
+    # take each song and splits it into clips of n_samples 
+    # creates 
+    print("making clips")
+    clip = clip_stft(stft, 128)
+    print("making clips")
+    
+    print("stacking")
+    stacked = np.stack(clip[:,0],axis=0)
+    mean = np.mean(stacked,axis=(0,1,2))
+    std = np.std(stacked,axis=(0,1,2))
+
+    print("mean",mean)
+    print("std",std)
+
+    return mean,std
+
+
