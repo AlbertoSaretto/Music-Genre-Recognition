@@ -252,9 +252,6 @@ def load_optuna( file_path = "./trial.pickle",lr=None):
 
 def main():
     pl.seed_everything(666)
-  
-    # Set the hyperparameters in the config dictionary
-    # Parameters found with Optuna. Find a way to automatically import this
    
     # Define the EarlyStopping callback
     early_stop_callback = pl.callbacks.EarlyStopping(
@@ -265,14 +262,19 @@ def main():
         mode='min'           # Mode: 'min' if you want to minimize the monitored quantity (e.g., loss)
     )
 
-
-    # I think that Trainer automatically takes last checkpoint.
+    """
+    Trainer can start from already existing checkpoint, but we find it more practical to comment/uncomment the lines below
+    (see CKPT_PATH part)
+    """
     trainer = pl.Trainer(max_epochs=100, check_val_every_n_epoch=5, log_every_n_steps=1, 
-                         deterministic=True,callbacks=[early_stop_callback], ) # profiler="simple" remember to add this and make fun plots
+                         deterministic=True,callbacks=[early_stop_callback], ) # profiler="simple" add this to check where time is spent
     
+    # Uncomment the following to load Optuna hyperparameters
+
     #hyperparameters = load_optuna("./trialv2.pickle")
     #model = LitNet(hyperparameters)
     
+    # Comment this if you want to load params with Optuna
     model = LitNet()
 
     
