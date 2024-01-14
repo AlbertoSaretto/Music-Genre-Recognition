@@ -141,7 +141,7 @@ class NNET2(nn.Module):
         max_pool = F.max_pool2d(x, kernel_size=(125,1))
         avg_pool = F.avg_pool2d(x, kernel_size=(125,1))
         x = torch.cat([max_pool,avg_pool],dim=1)
-        x = self.fc(x.view(x.size(0), -1)) # maybe I should use flatten instead of view
+        x = self.fc(x.view(x.size(0), -1)) # Reshape x to fit in linear layers. Equivalent to F.Flatten
         return x 
 
 
@@ -152,14 +152,10 @@ class LitNet(pl.LightningModule):
     
     def __init__(self, config=None):
        
-        super().__init__()
-        # super(NNET2, self).__init__() ? 
-        
+        super().__init__()       
         print('Network initialized')
         
         self.net = NNET2()
-        self.val_loss = []
-        self.train_loss = []
         self.best_val = np.inf
         
         # If no configurations regarding the optimizer are specified, use the default ones
@@ -183,8 +179,7 @@ class LitNet(pl.LightningModule):
         x_batch = batch[0]
         label_batch = batch[1]
         out = self.net(x_batch)
-        loss = F.cross_entropy(out, label_batch) # Diego nota: aggiungere weights in base a distribuzione classi dataset?
-        self.train_loss.append(loss.item())
+        loss = F.cross_entropy(out, label_batch) 
         return loss
 
     def validation_step(self, batch, batch_idx=None):
@@ -196,14 +191,16 @@ class LitNet(pl.LightningModule):
         label_batch = batch[1]
         out = self.net(x_batch)
         loss = F.cross_entropy(out, label_batch)
-
+        """
+        Validation accuracy is computed as follows.
+        label_batch are the true labels. They are one-hot encoded (eg [1,0,0,0,0,0,0,0]). 
+        out are the predicted labels. They are a 8-dim vector of probabilities.
+        argmax checks what is the index with the highest probability. Each index is related to a Music Genre.
+        If the indexes are equal the classification is correct.
+        
+        """
         val_acc = np.sum(np.argmax(label_batch.detach().cpu().numpy(), axis=1) == np.argmax(out.detach().cpu().numpy(), axis=1)) / len(label_batch)
 
-            
-        #validation_loss = np.append(validation_loss,1 - val_acc)
-        #print(f"accuracy: {val_acc*100} %")
-        
-        # Should I save the model based on loss or on accuracy?7
         """
         LitNet doesnt need to save the model, it is done automatically by pytorch lightning
         if loss.item() < self.best_val:
@@ -211,9 +208,7 @@ class LitNet(pl.LightningModule):
             torch.save(self.net.state_dict(), "saved_models/nnet2/model.pt")
             self.best_val = loss.item()
         """
-
-
-        self.val_loss.append(loss.item())
+        # Saves lighting_logs used in Tensorboard.
         self.log("val_loss", loss.item(), prog_bar=True)
         self.log("val_acc", val_acc, prog_bar=True)
 
@@ -226,7 +221,7 @@ class LitNet(pl.LightningModule):
         loss = F.cross_entropy(out, label_batch)
 
         test_acc = np.sum(np.argmax(label_batch.detach().cpu().numpy(), axis=1) == np.argmax(out.detach().cpu().numpy(), axis=1)) / len(label_batch)
-
+        # Saves lighting_logs to track test loss and accuracy. 
         self.log("test_loss", loss.item(), prog_bar=True)
         self.log("test_acc", test_acc, prog_bar=True)
 
@@ -234,19 +229,25 @@ class LitNet(pl.LightningModule):
         return self.optimizer
     
 
-def load_optuna( file_path = "./trial.pickle"):
-    # Specify the path to the pickle file
+def load_optuna( file_path = "./trial.pickle",lr=None):
 
+    """
+    Use this function to load hyperparameters found with Optuna.
+    These should be saved in a pickle file, containing a dictonary with optimizer's parameters.
+    This is not the 100% correct way of using Optuna, in fact one should use the .db  file that the Optuna study creates.
+    But this works anyway.
 
+    If you want to change the lr to a value other than the one found with Optuna, you can set it in the input of the function.
+    """
     # Open the pickle file in read mode
     with open(file_path, "rb") as file:
         # Load the data from the pickle file
         best_optuna = pickle.load(file)
-    
-    best_optuna.params["lr"] = 0.5 #changing learning rate
-    hyperparameters = best_optuna.params
-    
-    return hyperparameters
+    if lr is not None:
+            
+        best_optuna.params["lr"] = lr #changing learning rate
+
+    return  best_optuna.params
 
 
 def main():
