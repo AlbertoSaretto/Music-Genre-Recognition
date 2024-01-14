@@ -199,31 +199,39 @@ class DataAudio(Dataset):
         # load audio track
         #with warnings.catch_warnings():
         #    warnings.simplefilter('ignore')
-        audio, sr = getAudio(self.track_ids[i])
 
-        #Select random clip from audio
-        start = np.random.randint(0, (audio.shape[0]-2**18))
-        audio = audio[start:start+2**18]
-                    
-        if(self.type=="2D"):
-          
-            #Get 2D spectrogram
-            stft = np.abs(librosa.stft(audio, n_fft=4096, hop_length=2048))
+        
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            audio, sr = getAudio(self.track_ids[i])
+
+            #Select random clip from audio
+            start = np.random.randint(0, (audio.shape[0]-2**18))
+            audio = audio[start:start+2**18]
             
-            mel = librosa.feature.melspectrogram(sr=sr, S=stft**2, n_mels=513)[:,:128]
-            mel = librosa.power_to_db(mel).T
-            return mel
-    
-        return audio[np.newaxis,:]
-
-
+            if(self.type=="2D"):
+                #Get 2D spectrogram
+                stft = np.abs(librosa.stft(audio, n_fft=4096, hop_length=2048))
+                
+                mel = librosa.feature.melspectrogram(sr=sr, S=stft**2, n_mels=513)[:,:128]
+                mel = librosa.power_to_db(mel, ref=np.max).T
+                return mel
+            
+            return audio[np.newaxis,:]
+        
+            
 
     def __getitem__(self, idx):
 
         # get input and label
-
-        x = self.create_input(idx) 
-        y = self.label[idx]
+        try:
+            x = self.create_input(idx)
+            y = self.label[idx] 
+        except:
+            print("\nNon riesco a caricare la track numero ", self.track_ids[idx], " Vado con la prossima\n")
+            x = self.create_input(idx+1)
+            y = self.label[idx]
+        
 
         if self.transform:
             x = self.transform(x)
