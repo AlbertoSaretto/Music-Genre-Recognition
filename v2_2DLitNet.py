@@ -6,14 +6,10 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 import os 
 from torch.optim import Adadelta
-from tqdm import tqdm
-import gc
-import optuna
 import pytorch_lightning as pl
-import time
 import pickle
 import utils
-from utils_mgr import DataAudio, create_subset
+from utils_mgr import DataAudio, create_subset, MinMaxScaler
 import os
 
 
@@ -25,9 +21,6 @@ print("let's start")
 def import_and_preprocess_data(architecture_type="1D"):
     # Load metadata and features.
     tracks = utils.load('data/fma_metadata/tracks.csv')
-
-    #Check tracks format
-    print("track shape",tracks.shape)
 
     #Select the desired subset among the entire dataset
     sub = 'small'
@@ -52,7 +45,8 @@ def import_and_preprocess_data(architecture_type="1D"):
         v2.RandomResizedCrop(size=(128,513), antialias=True), 
         v2.RandomHorizontalFlip(p=0.5),
         v2.ToDtype(torch.float32, scale=True),
-        v2.Normalize(mean=[1.0784853], std=[4.0071154]),
+        #v2.Normalize(mean=[1.0784853], std=[4.0071154]),
+        v2.Lambda(lambda x: MinMaxScaler(x))
         ])
 
     # Create the datasets and the dataloaders
