@@ -1,4 +1,6 @@
 import os 
+os.chdir("./../")
+print("Current working directory is now: ", os.getcwd())
 import numpy as np
 import torchvision.transforms.v2 as v2
 import torch
@@ -12,8 +14,12 @@ import optuna
 import pytorch_lightning as pl
 import time
 import pickle
+import torch.nn.init as init
 
-from utils_mgr import DataAudioH5, create_subset
+
+from utils_mgr import DataAudio, create_subset, MinMaxScaler
+import utils
+
 
 
 """
@@ -29,10 +35,18 @@ print("let's start")
 ##tensorboard --logdir=lightning_logs/ 
 # to visualize logs
 
+"""
+Remove this. You'll find it in utils_mgr.py
 def MinMaxScaler(x):
     Xmin = torch.min(x)
     Xmax = torch.max(x)
     return (x-Xmin)/(Xmax-Xmin)
+"""
+
+
+
+"""
+USE THIS TO LOAD DATA WITH H5 FILE
 
 def import_and_preprocess_data(architecture_type="1D",dataset_folder="./h5_experimentation/"):
     
@@ -59,6 +73,64 @@ def import_and_preprocess_data(architecture_type="1D",dataset_folder="./h5_exper
 
 
     return train_dataloader, val_dataloader, test_dataloader
+"""
+
+
+def import_and_preprocess_data(architecture_type="2D"):
+
+
+    """
+    This function uses metadata contained in tracks.csv to import mp3 files,
+    pass them through DataAudio class and eventually create Dataloaders.  
+    
+    """
+    # Load metadata and features.
+    tracks = utils.load('data/fma_metadata/tracks.csv')
+
+    #Select the desired subset among the entire dataset
+    sub = 'small'
+    raw_subset = tracks[tracks['set', 'subset'] <= sub] 
+    
+    #Creation of clean subset for the generation of training, test and validation sets
+    meta_subset= create_subset(raw_subset)
+
+    # Remove corrupted files
+    corrupted = [98565, 98567, 98569, 99134, 108925, 133297]
+    meta_subset = meta_subset[~meta_subset['index'].isin(corrupted)]
+
+    #Split between taining, validation and test set according to original FMA split
+
+    train_set = meta_subset[meta_subset["split"] == "training"]
+    val_set   = meta_subset[meta_subset["split"] == "validation"]
+    test_set  = meta_subset[meta_subset["split"] == "test"]
+
+    # Standard transformations for images
+
+    # There are two ways to normalize data: 
+    #   1. Using  v2.Normalize(mean=[1.0784853], std=[4.0071154]). These values are computed with utils_mgr.mean_computer() function.
+    #   2. Using v2.Lambda and MinMaxScaler. This function is implemented in utils_mgr and resambles sklearn homonym function.
+
+    transforms = v2.Compose([v2.ToTensor(),
+        v2.RandomResizedCrop(size=(128,513), antialias=True), # Data Augmentation
+        v2.RandomHorizontalFlip(p=0.5), # Data Augmentation
+        v2.ToDtype(torch.float32, scale=True),
+        #v2.Normalize(mean=[1.0784853], std=[4.0071154]),
+        v2.Lambda(lambda x: MinMaxScaler(x)) # see utils_mgr
+        ])
+
+    # Create the datasets and the dataloaders
+    train_dataset    = DataAudio(train_set, transform = transforms,type=architecture_type)
+    train_dataloader = DataLoader(train_dataset, batch_size=64, shuffle=True, num_workers=os.cpu_count())
+
+    val_dataset      = DataAudio(val_set, transform = transforms,type=architecture_type)
+    val_dataloader   = DataLoader(val_dataset, batch_size=64, shuffle=False, num_workers=os.cpu_count())
+
+    test_dataset     = DataAudio(test_set, transform = transforms,type=architecture_type)
+    test_dataloader  = DataLoader(test_dataset, batch_size=64, shuffle=False, num_workers=os.cpu_count())
+
+
+    return train_dataloader, val_dataloader, test_dataloader
+
 
 class Encoder(nn.Module):
 
@@ -168,6 +240,19 @@ class Autoencoder(nn.Module):
             self.encoder = Encoder(encoded_space_dim)
             self.decoder = Decoder(encoded_space_dim)
             
+            self._initialize_weights()
+
+        def _initialize_weights(self):
+            for module in self.modules():
+                if isinstance(module, nn.Conv2d) or isinstance(module, nn.ConvTranspose2d):
+                    init.xavier_uniform_(module.weight)
+                    if module.bias is not None:
+                        init.constant_(module.bias, 0)
+                elif isinstance(module, nn.Linear):
+                    init.xavier_uniform_(module.weight)
+                    if module.bias is not None:
+                        init.constant_(module.bias, 0)
+                
         def forward(self, x):
             #print("very input shape",x.shape)
             x = self.encoder(x)
@@ -222,11 +307,11 @@ class LitNet(pl.LightningModule):
         #label_batch = batch[1]
         out = self.net(x_batch)
         loss = F.mse_loss(out, x_batch)  # Use MSE loss for autoencoders
-
+        """
         print("loss",loss.item())
         print("x_batch",x_batch,"\n")
         print("out",out,"\n")
-
+        """    
         self.log("val_loss", loss.item(), prog_bar=True)
 
 
@@ -274,8 +359,8 @@ def main():
     model.load_state_dict(checkpoint['state_dict'])
     """
 
-    train_dataloader, val_dataloader, test_dataloader = import_and_preprocess_data(architecture_type="2D",
-                                                                                   dataset_folder="./h5Dataset/")
+    train_dataloader, val_dataloader, _ = import_and_preprocess_data(architecture_type="2D")
+                                                                                  
     print("data shape",train_dataloader.dataset.__getitem__(0)[0].shape)
     print("everything between 0-1",torch.max(train_dataloader.dataset.__getitem__(0)[0]),
           torch.min(train_dataloader.dataset.__getitem__(0)[0]))
