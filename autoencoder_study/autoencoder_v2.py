@@ -398,6 +398,14 @@ def main():
     
     model = LitNet()
 
+    
+    # Apply gradient clipping to the optimizer
+    # Used to prevent exploding gradients
+    clip_value = 1.0
+    for param in model.parameters():
+        param.grad.data = torch.clamp(param.grad.data, -clip_value, clip_value)
+
+
     """
     # Load model weights from checkpoint
     CKPT_PATH = "./lightning_logs/version_1/checkpoints/epoch=29-step=3570.ckpt"
