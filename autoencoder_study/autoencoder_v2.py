@@ -148,19 +148,19 @@ class Encoder(nn.Module):
             # First convolutional layer
             nn.Conv2d(in_channels=1, out_channels=8, kernel_size=3, 
                       stride=2, padding=1),
-            nn.ReLU(True),
-             nn.BatchNorm2d(8),
-             nn.Dropout2d(0.2),
+            nn.Sigmoid(),
+            nn.BatchNorm2d(8),
+            nn.Dropout2d(0.2),
             # Second convolutional layer
             nn.Conv2d(in_channels=8, out_channels=16, kernel_size=3, 
                       stride=2, padding=1),
-            nn.ReLU(True),
+            nn.Sigmoid(),
             nn.BatchNorm2d(16),
             nn.Dropout2d(0.2),
             # Third convolutional layer
             nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3, 
                       stride=2, padding=0),
-            nn.ReLU(True),
+            nn.Sigmoid(),
             nn.BatchNorm2d(32),
             nn.Dropout2d(0.2),
         )
@@ -172,9 +172,10 @@ class Encoder(nn.Module):
         self.encoder_lin = nn.Sequential(
             # First linear layer
             nn.Linear(in_features= 32, out_features=64),
-            nn.ReLU(True),
+            nn.Sigmoid(),
             # Second linear layer
-            nn.Linear(in_features=64, out_features=encoded_space_dim)
+            nn.Linear(in_features=64, out_features=encoded_space_dim),
+            nn.Sigmoid()
         )
         
 
@@ -213,10 +214,10 @@ class Decoder(nn.Module):
         self.decoder_lin = nn.Sequential(
             # First linear layer
             nn.Linear(in_features=encoded_space_dim, out_features=64),
-            nn.ReLU(True),
+            nn.Sigmoid(),
             # Second linear layer
             nn.Linear(in_features=64, out_features= 32),
-            nn.ReLU(True)
+            nn.Sigmoid()
         )
 
         ### Unflatten
@@ -227,21 +228,21 @@ class Decoder(nn.Module):
             # First transposed convolution
             nn.ConvTranspose2d(in_channels=32, out_channels=16, kernel_size=3, 
                                stride=2, output_padding=(1,0)),
-            nn.ReLU(True),
+            nn.Sigmoid(),
             nn.BatchNorm2d(16),
             nn.Dropout2d(0.2),
            
             # Second transposed convolution
             nn.ConvTranspose2d(in_channels=16, out_channels=8, kernel_size=3, 
                                stride=2, padding=1, output_padding=(1,0)),
-            nn.ReLU(True),
+            nn.Sigmoid(),
             nn.BatchNorm2d(8),
             nn.Dropout2d(0.2),
            
             # Third transposed convolution
             nn.ConvTranspose2d(in_channels=8, out_channels=1, kernel_size=3, 
                                stride=2, padding=1, output_padding=(1,0)),
-            nn.ReLU(True),
+            nn.Sigmoid(),
             nn.BatchNorm2d(1),
             nn.Dropout2d(0.2),
            
@@ -337,6 +338,7 @@ class LitNet(pl.LightningModule):
         #label_batch = batch[1]
         out = self.net(x_batch)
         loss = F.mse_loss(out, x_batch)
+        print("loss",loss.item())
         """
         print("loss",loss.item())
         print("x_batch",x_batch,"\n")
@@ -383,7 +385,7 @@ def main():
     early_stop_callback = pl.callbacks.EarlyStopping(
         monitor='val_loss',  # Monitor the validation loss
         min_delta=0.01,     # Minimum change in the monitored metric
-        patience=20,          # Number of epochs with no improvement after which training will be stopped
+        patience=5,          # Number of epochs with no improvement after which training will be stopped
         verbose=True,
         mode='min'           # Mode: 'min' if you want to minimize the monitored quantity (e.g., loss)
     )
@@ -392,7 +394,8 @@ def main():
     # I think that Trainer automatically takes last checkpoint.
     trainer = pl.Trainer(max_epochs=1, check_val_every_n_epoch=1, log_every_n_steps=1, 
                          deterministic=True,callbacks=[early_stop_callback], 
-                         gradient_clip_val=.5) # adding gradient clip to avoid exploding gradients
+                         gradient_clip_val=10,
+                         gradient_clip_algorithm="value") # adding gradient clip to avoid exploding gradients
     # profiler="simple" remember to add this and make fun plots
     
     #hyperparameters = load_optuna("./trialv2.pickle")
