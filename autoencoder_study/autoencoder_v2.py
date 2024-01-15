@@ -337,11 +337,11 @@ class LitNet(pl.LightningModule):
         #label_batch = batch[1]
         out = self.net(x_batch)
         loss = F.mse_loss(out, x_batch)
-        
+        """
         print("loss",loss.item())
         print("x_batch",x_batch,"\n")
         print("out",out,"\n")
-        
+        """
         return loss
 
     def validation_step(self, batch, batch_idx=None):
@@ -391,7 +391,9 @@ def main():
 
     # I think that Trainer automatically takes last checkpoint.
     trainer = pl.Trainer(max_epochs=1, check_val_every_n_epoch=1, log_every_n_steps=1, 
-                         deterministic=True,callbacks=[early_stop_callback], ) # profiler="simple" remember to add this and make fun plots
+                         deterministic=True,callbacks=[early_stop_callback], 
+                         gradient_clip_val=.5) # adding gradient clip to avoid exploding gradients
+    # profiler="simple" remember to add this and make fun plots
     
     #hyperparameters = load_optuna("./trialv2.pickle")
     #model = LitNet(hyperparameters)
@@ -399,11 +401,7 @@ def main():
     model = LitNet()
 
     
-    # Apply gradient clipping to the optimizer
-    # Used to prevent exploding gradients
-    clip_value = 1.0
-    for param in model.parameters():
-        param.grad.data = torch.clamp(param.grad.data, -clip_value, clip_value)
+    
 
 
     """
