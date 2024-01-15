@@ -20,6 +20,11 @@ import torch.nn.init as init
 from utils_mgr import DataAudio, create_subset, MinMaxScaler
 import utils
 
+"""
+HOW TO CONTRAST DIVERGING GRADIENTS
+https://deepai.org/machine-learning-glossary-and-terms/exploding-gradient-problem#:~:text=The%20exploding%20gradient%20problem%20is,(weights)%20become%20excessively%20large.
+
+"""
 
 
 """
@@ -172,6 +177,19 @@ class Encoder(nn.Module):
             nn.Linear(in_features=64, out_features=encoded_space_dim)
         )
         
+
+        self._initialize_weights()
+
+    def _initialize_weights(self):
+        for module in self.modules():
+            if isinstance(module, nn.Conv2d) or isinstance(module, nn.ConvTranspose2d):
+                init.xavier_uniform_(module.weight)
+                if module.bias is not None:
+                    init.constant_(module.bias, 1)
+            elif isinstance(module, nn.Linear):
+                init.xavier_uniform_(module.weight)
+                if module.bias is not None:
+                    init.constant_(module.bias, 1)
     def forward(self, x):
         # Apply convolutions
         x = self.encoder_cnn(x)
@@ -228,7 +246,19 @@ class Decoder(nn.Module):
             nn.Dropout2d(0.2),
            
         )
-        
+        self._initialize_weights()
+
+    def _initialize_weights(self):
+        for module in self.modules():
+            if isinstance(module, nn.Conv2d) or isinstance(module, nn.ConvTranspose2d):
+                init.xavier_uniform_(module.weight)
+                if module.bias is not None:
+                    init.constant_(module.bias, 1)
+            elif isinstance(module, nn.Linear):
+                init.xavier_uniform_(module.weight)
+                if module.bias is not None:
+                    init.constant_(module.bias, 1)
+    
 
     def forward(self, x):
         #print("input of decoder",x.shape)
@@ -293,7 +323,7 @@ class LitNet(pl.LightningModule):
             print("optimzier parameters:", self.optimizer)
         except:
                 print("Using default optimizer parameters")
-                self.optimizer = Adadelta(self.net.parameters(),lr=0.1)
+                self.optimizer = Adadelta(self.net.parameters(),lr=0.001)
                 print("optimzier parameters:", self.optimizer)
         
 
@@ -307,11 +337,11 @@ class LitNet(pl.LightningModule):
         #label_batch = batch[1]
         out = self.net(x_batch)
         loss = F.mse_loss(out, x_batch)
-        """
+        
         print("loss",loss.item())
         print("x_batch",x_batch,"\n")
         print("out",out,"\n")
-        """
+        
         return loss
 
     def validation_step(self, batch, batch_idx=None):
