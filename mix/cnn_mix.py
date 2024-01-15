@@ -71,7 +71,7 @@ def import_and_preprocess_data(PATH_DATA = "../."):
 
     train_set = meta_subset[meta_subset["split"] == "training"]
     val_set   = meta_subset[meta_subset["split"] == "validation"]
-    test_set  = meta_subset[meta_subset["split"] == "test"]
+    #test_set  = meta_subset[meta_subset["split"] == "test"]
 
     # Standard transformations for images
 
@@ -130,15 +130,9 @@ class MixNet(nn.Module):
         self.dropout = nn.Dropout(p=0.5)  # Add dropout layer
 
         self.classifier = nn.Sequential(
-            nn.Linear(512+2048, 512),
+            nn.Linear(512+2048, 128),
             nn.ReLU(),
-            self.dropout, 
-            nn.Linear(512, 256),
-            nn.ReLU(),
-            self.dropout, 
-            nn.Linear(256, 128),
-            nn.ReLU(),
-            self.dropout,  
+            self.dropout,   
             nn.Linear(128, 8),
             nn.Softmax(dim=1)
         )
@@ -359,7 +353,7 @@ def main():
 
     Use trainer to set number of epochs and callbacks.
     """
-    trainer = pl.Trainer(max_epochs=100, check_val_every_n_epoch=1, log_every_n_steps=1, 
+    trainer = pl.Trainer(max_epochs=100, check_val_every_n_epoch=5, log_every_n_steps=1, 
                          deterministic=True,callbacks=[early_stop_callback],
                            ) # profiler="simple" add this to check where time is spent
     

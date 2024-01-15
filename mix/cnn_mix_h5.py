@@ -111,13 +111,7 @@ class MixNet(nn.Module):
         self.dropout = nn.Dropout(p=0.5)  # Add dropout layer
 
         self.classifier = nn.Sequential(
-            nn.Linear(512+2048, 512),
-            nn.ReLU(),
-            self.dropout, 
-            nn.Linear(512, 256),
-            nn.ReLU(),
-            self.dropout, 
-            nn.Linear(256, 128),
+            nn.Linear(512+2048, 128),
             nn.ReLU(),
             self.dropout,  
             nn.Linear(128, 8),
