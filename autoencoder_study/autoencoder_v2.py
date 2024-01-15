@@ -144,14 +144,20 @@ class Encoder(nn.Module):
             nn.Conv2d(in_channels=1, out_channels=8, kernel_size=3, 
                       stride=2, padding=1),
             nn.ReLU(True),
+             nn.BatchNorm2d(8),
+             nn.Dropout2d(0.2),
             # Second convolutional layer
             nn.Conv2d(in_channels=8, out_channels=16, kernel_size=3, 
                       stride=2, padding=1),
             nn.ReLU(True),
+            nn.BatchNorm2d(16),
+            nn.Dropout2d(0.2),
             # Third convolutional layer
             nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3, 
                       stride=2, padding=0),
-            nn.ReLU(True)
+            nn.ReLU(True),
+            nn.BatchNorm2d(32),
+            nn.Dropout2d(0.2),
         )
         
         ### Flatten layer
@@ -204,13 +210,23 @@ class Decoder(nn.Module):
             nn.ConvTranspose2d(in_channels=32, out_channels=16, kernel_size=3, 
                                stride=2, output_padding=(1,0)),
             nn.ReLU(True),
+            nn.BatchNorm2d(16),
+            nn.Dropout2d(0.2),
+           
             # Second transposed convolution
             nn.ConvTranspose2d(in_channels=16, out_channels=8, kernel_size=3, 
                                stride=2, padding=1, output_padding=(1,0)),
             nn.ReLU(True),
+            nn.BatchNorm2d(8),
+            nn.Dropout2d(0.2),
+           
             # Third transposed convolution
             nn.ConvTranspose2d(in_channels=8, out_channels=1, kernel_size=3, 
-                               stride=2, padding=1, output_padding=(1,0))
+                               stride=2, padding=1, output_padding=(1,0)),
+            nn.ReLU(True),
+            nn.BatchNorm2d(1),
+            nn.Dropout2d(0.2),
+           
         )
         
 
@@ -247,11 +263,11 @@ class Autoencoder(nn.Module):
                 if isinstance(module, nn.Conv2d) or isinstance(module, nn.ConvTranspose2d):
                     init.xavier_uniform_(module.weight)
                     if module.bias is not None:
-                        init.constant_(module.bias, 0)
+                        init.constant_(module.bias, 1)
                 elif isinstance(module, nn.Linear):
                     init.xavier_uniform_(module.weight)
                     if module.bias is not None:
-                        init.constant_(module.bias, 0)
+                        init.constant_(module.bias, 1)
                 
         def forward(self, x):
             #print("very input shape",x.shape)
@@ -277,7 +293,7 @@ class LitNet(pl.LightningModule):
             print("optimzier parameters:", self.optimizer)
         except:
                 print("Using default optimizer parameters")
-                self.optimizer = Adadelta(self.net.parameters())
+                self.optimizer = Adadelta(self.net.parameters(),lr=0.1)
                 print("optimzier parameters:", self.optimizer)
         
 
