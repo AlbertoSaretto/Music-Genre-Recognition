@@ -306,13 +306,13 @@ def main():
     nnet1d = LN1D.load_from_checkpoint(checkpoint_path=CKPT_PATH_1D).eval()
     nnet2d = LN2D.load_from_checkpoint(checkpoint_path=CKPT_PATH_2D).eval()
 
-
-    # Freeze the weights
+    """    # Freeze the weights
     for param in nnet1d.parameters():
         param.requires_grad = False
         
     for param in nnet2d.parameters():
         param.requires_grad = False
+    """
 
     # Build convolutional blocks
     conv_block1D, conv_block2D = build_convolutional_blocks(nnet1d, nnet2d)
