@@ -1,4 +1,4 @@
-#MODELLI E RELATIVI PROBLEMI
+# MODELLI E RELATIVI PROBLEMI
 
 
 -	CNN 1D: acc ??, optuna
@@ -7,7 +7,8 @@
 -	CNN 1D+2D: ? trainabile? Vanishing? Discutere numero parametri . Stare più accorti con predictor finale perché troppi parametri non stanno in RAM
 -	SPATIAL TRANSFORMER NET + versione RES: spiegare cos’è e risultati training?
 -	AE + ResAE: vanno trainati e va allenato predictor su spazio latente
-Problemi da spiegare: vanishing gradient.
+
+## Problemi da spiegare: vanishing gradient.
 Come è stato affrontato:
 -	Inizializzato weights
 -	Cambiato activation da ReLU a Sigmoid (numerical stability, gradienti che si accumulano)
