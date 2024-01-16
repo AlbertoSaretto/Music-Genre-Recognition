@@ -15,3 +15,7 @@ Come è stato affrontato:
 -	Gradient clipping
 -	Connessioni residuali + alleggerimento architettura (meno layer/neuroni)
 -	Ma l’unico che ha funzionato è cambiare la normalizzazione da minmax a v2.Normalize(mean,std calcolati su batch del dataset)
+**ATTENZIONE: Il problema era la mia funzione e si è risolto usando la funzione di Sklearn anziché la mia. Io mentirei e direi che si è risolto usando queste tecniche...**
+
+## MANCA TUTTA LA PARTE DI ANALISI DEI WEIGHTS 
+(vedi consegna su ppt)
