@@ -416,7 +416,7 @@ class DataAudioH5_double(Dataset):
 
     def __len__(self):
 
-        return self.x.len()
+        return len(self.x)
 
     def create_input(self, audio):
       

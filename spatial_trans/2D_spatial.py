@@ -1,3 +1,7 @@
+import os
+
+os.chdir("/home/diego/Music-Genre-Recognition")
+
 import numpy as np
 import torchvision.transforms.v2 as v2
 import torch
@@ -10,7 +14,6 @@ import pytorch_lightning as pl
 import pickle
 import utils
 from utils_mgr import DataAudio, create_subset, MinMaxScaler
-import os
 
 
 print("let's start")
@@ -86,14 +89,15 @@ class NNET2(nn.Module):
             nn.ReLU(),
             nn.Dropout2d(.2)
         )
-
+        """
+        Removing this layer for vanishing gradient problem
         self.c2 = nn.Sequential(
             nn.Conv2d(in_channels=256, out_channels=256, kernel_size=(4, 1),padding=(2,0)),
             nn.BatchNorm2d(256),
             nn.ReLU(),
             nn.Dropout2d(.2)
         )
-
+        """
         self.c3 = nn.Sequential(
             nn.Conv2d(in_channels=256, out_channels=256, kernel_size=(4, 1),padding=(1,0)),
             nn.BatchNorm2d(256),
@@ -116,7 +120,7 @@ class NNET2(nn.Module):
         # Weights initialisation
         # if
         if initialisation == "xavier":
-            print("initialising weights with Xavier")
+            print("initialising weights wit Xavier")
             self.apply(self._init_weights)
         else:
             print('Weights not initialised. If previous checkpoint is not loaded, set initialisation = "xavier"')
@@ -143,9 +147,58 @@ class NNET2(nn.Module):
         x = torch.cat([max_pool,avg_pool],dim=1)
         x = self.fc(x.view(x.size(0), -1)) # Reshape x to fit in linear layers. Equivalent to F.Flatten
         return x 
+    
+
+class LocalisationNet(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+        # Spatial transformer localization-network
+        self.localization = nn.Sequential(
+            nn.Conv2d(1, 8, kernel_size=7),
+            nn.MaxPool2d(2, stride=2),
+            nn.ReLU(True),
+            nn.Conv2d(8, 10, kernel_size=5),
+            nn.MaxPool2d(2, stride=2),
+            nn.ReLU(True)
+        )
+
+        # Regressor for the 3 * 2 affine matrix
+        self.fc_loc = nn.Sequential(
+            nn.Linear(10 * 28 * 124, 32),
+            nn.ReLU(True),
+            nn.Linear(32, 3 * 2)
+        )
+
+        # Initialize the weights/bias with identity transformation
+        self.fc_loc[2].weight.data.zero_()
+        self.fc_loc[2].bias.data.copy_(torch.tensor([1, 0, 0, 0, 1, 0], dtype=torch.float))
+
+    def forward(self,x):
+        xs = self.localization(x)
+        xs = xs.view(-1, 10 * 28 * 124)
+        theta = self.fc_loc(xs)
+        theta = theta.view(-1, 2, 3)
+
+        grid = F.affine_grid(theta, x.size())
+        x = F.grid_sample(x, grid)
+
+        return x
 
 
+class SpatialTransformer(nn.Module):
+    def __init__(self,initialisation="xavier") :
+        super().__init__()
 
+        self.stn = LocalisationNet()
+        self.net = NNET2(initialisation)
+
+    def forward(self,x):
+        x = self.stn(x)
+        x = self.net(x)
+        return x
+    
+    
 # Define a LightningModule (nn.Module subclass)
 # A LightningModule defines a full system (ie: a GAN, autoencoder, BERT or a simple Image Classifier).
 class LitNet(pl.LightningModule):
@@ -155,7 +208,7 @@ class LitNet(pl.LightningModule):
         super().__init__()       
         print('Network initialized')
         
-        self.net = NNET2(initialisation)
+        self.net = SpatialTransformer(initialisation)
         self.best_val = np.inf
         
         # If no configurations regarding the optimizer are specified, use the default ones
@@ -180,6 +233,8 @@ class LitNet(pl.LightningModule):
         label_batch = batch[1]
         out = self.net(x_batch)
         loss = F.cross_entropy(out, label_batch) 
+        if loss == np.nan:
+            print("Nan loss")
         return loss
 
     def validation_step(self, batch, batch_idx=None):
@@ -253,6 +308,7 @@ def load_optuna( file_path = "./trial.pickle",lr=None):
 def main():
     pl.seed_everything(666)
    
+    os.chdir("/home/diego/Music-Genre-Recognition")
     # Define the EarlyStopping callback
     early_stop_callback = pl.callbacks.EarlyStopping(
         monitor='val_loss',  # Monitor the validation loss
@@ -268,17 +324,16 @@ def main():
 
     Use trainer to set number of epochs and callbacks.
     """
-    trainer = pl.Trainer(max_epochs=100, check_val_every_n_epoch=5, log_every_n_steps=1, 
-                         deterministic=True,callbacks=[early_stop_callback], ) # profiler="simple" add this to check where time is spent
+    trainer = pl.Trainer(max_epochs=1, check_val_every_n_epoch=1, log_every_n_steps=1, 
+                         deterministic=True,callbacks=[early_stop_callback],
+                          gradient_clip_val=.5 ) # profiler="simple" add this to check where time is spent
     
     # Uncomment the following to load Optuna hyperparameters
-
-
-    hyperparameters = load_optuna("./trialv2.pickle")
-    model = LitNet(hyperparameters)
+    #hyperparameters = load_optuna("./trialv2.pickle")
+    #model = LitNet(hyperparameters)
     
     # Comment this if you want to load params with Optuna
-    #model = LitNet(initialisation="xavier")
+    model = LitNet(initialisation="xavier")
 
   # Load model weights from checkpoint
     # Comment/uncomment this three lines
