@@ -76,30 +76,25 @@ def import_and_preprocess_data(architecture_type="1D"):
 
     return train_dataloader, val_dataloader, test_dataloader
 
-
 class NNET2(nn.Module):
+
+    """
+    Remove c2 layer and modify the forward function to keep residual
+    """
         
     def __init__(self,initialisation="xavier"):
         super(NNET2, self).__init__()
         
         
         self.c1 = nn.Sequential(
-            nn.Conv2d(in_channels=1, out_channels=256,kernel_size=(4,513)),
-            nn.BatchNorm2d(256),
-            nn.ReLU(),
-            nn.Dropout2d(.2)
-        )
-        
-       
-        self.c2 = nn.Sequential(
-            nn.Conv2d(in_channels=256, out_channels=256, kernel_size=(4, 1),padding=(2,0)),
+            nn.Conv2d(in_channels=1, out_channels=256,kernel_size=(4,513),padding=(1,0)),
             nn.BatchNorm2d(256),
             nn.ReLU(),
             nn.Dropout2d(.2)
         )
         
         self.c3 = nn.Sequential(
-            nn.Conv2d(in_channels=256, out_channels=256, kernel_size=(4, 1),padding=(1,0)),
+            nn.Conv2d(in_channels=256, out_channels=256, kernel_size=(4, 1),padding="same"),
             nn.BatchNorm2d(256),
             nn.ReLU(),
             nn.Dropout2d(.2)
@@ -120,7 +115,7 @@ class NNET2(nn.Module):
         # Weights initialisation
         # if
         if initialisation == "xavier":
-            print("initialising weights wit Xavier")
+            print("initialising weights with Xavier")
             self.apply(self._init_weights)
         else:
             print('Weights not initialised. If previous checkpoint is not loaded, set initialisation = "xavier"')
@@ -139,14 +134,14 @@ class NNET2(nn.Module):
     def forward(self,x):
         
         c1 = self.c1(x) 
-        c2 = self.c2(c1)
-        c3 = self.c3(c2) 
-        x = c1 + c3 
-        max_pool = F.max_pool2d(x, kernel_size=(125,1))
-        avg_pool = F.avg_pool2d(x, kernel_size=(125,1))
+        c3 = self.c3(c1) # modify this if you want to add c2
+        x = c1 + c3  #should modify the net to keep residual
+        max_pool = F.max_pool2d(x, kernel_size=(127,1))
+        avg_pool = F.avg_pool2d(x, kernel_size=(127,1))
         x = torch.cat([max_pool,avg_pool],dim=1)
         x = self.fc(x.view(x.size(0), -1)) # Reshape x to fit in linear layers. Equivalent to F.Flatten
         return x 
+    
     
 
 class LocalisationNet(nn.Module):
@@ -233,6 +228,7 @@ class LitNet(pl.LightningModule):
         label_batch = batch[1]
         out = self.net(x_batch)
         loss = F.cross_entropy(out, label_batch) 
+        print("loss",loss)
         return loss
 
     def validation_step(self, batch, batch_idx=None):
@@ -322,7 +318,7 @@ def main():
 
     Use trainer to set number of epochs and callbacks.
     """
-    trainer = pl.Trainer(max_epochs=100, check_val_every_n_epoch=5, log_every_n_steps=1, 
+    trainer = pl.Trainer(max_epochs=1, check_val_every_n_epoch=1, log_every_n_steps=1, 
                          deterministic=True,callbacks=[early_stop_callback],
                           gradient_clip_val=.5 ) # profiler="simple" add this to check where time is spent
     
