@@ -116,7 +116,7 @@ class NNET2(nn.Module):
         # Weights initialisation
         # if
         if initialisation == "xavier":
-            print("initialising weights wit Xavier")
+            print("initialising weights with Xavier")
             self.apply(self._init_weights)
         else:
             print('Weights not initialised. If previous checkpoint is not loaded, set initialisation = "xavier"')
