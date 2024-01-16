@@ -148,19 +148,19 @@ class Encoder(nn.Module):
             # First convolutional layer
             nn.Conv2d(in_channels=1, out_channels=8, kernel_size=3, 
                       stride=2, padding=1),
-            nn.Sigmoid(),
+            nn.ReLU(True),
             nn.BatchNorm2d(8),
             nn.Dropout2d(0.2),
             # Second convolutional layer
             nn.Conv2d(in_channels=8, out_channels=16, kernel_size=3, 
                       stride=2, padding=1),
-            nn.Sigmoid(),
+            nn.ReLU(True),
             nn.BatchNorm2d(16),
             nn.Dropout2d(0.2),
             # Third convolutional layer
             nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3, 
                       stride=2, padding=0),
-            nn.Sigmoid(),
+            nn.ReLU(True),
             nn.BatchNorm2d(32),
             nn.Dropout2d(0.2),
         )
@@ -172,10 +172,10 @@ class Encoder(nn.Module):
         self.encoder_lin = nn.Sequential(
             # First linear layer
             nn.Linear(in_features= 32, out_features=64),
-            nn.Sigmoid(),
+            nn.ReLU(True),
             # Second linear layer
             nn.Linear(in_features=64, out_features=encoded_space_dim),
-            nn.Sigmoid()
+            nn.ReLU(True),
         )
         
 
@@ -217,10 +217,10 @@ class Decoder(nn.Module):
         self.decoder_lin = nn.Sequential(
             # First linear layer
             nn.Linear(in_features=encoded_space_dim, out_features=64),
-            nn.Sigmoid(),
+            nn.ReLU(True),
             # Second linear layer
             nn.Linear(in_features=64, out_features= 32),
-            nn.Sigmoid()
+            nn.ReLU(True),
         )
 
         ### Unflatten
@@ -231,21 +231,21 @@ class Decoder(nn.Module):
             # First transposed convolution
             nn.ConvTranspose2d(in_channels=32, out_channels=16, kernel_size=3, 
                                stride=2, output_padding=(1,0)),
-            nn.Sigmoid(),
+            nn.ReLU(True),
             nn.BatchNorm2d(16),
             nn.Dropout2d(0.2),
            
             # Second transposed convolution
             nn.ConvTranspose2d(in_channels=16, out_channels=8, kernel_size=3, 
                                stride=2, padding=1, output_padding=(1,0)),
-            nn.Sigmoid(),
+            nn.ReLU(True),
             nn.BatchNorm2d(8),
             nn.Dropout2d(0.2),
            
             # Third transposed convolution
             nn.ConvTranspose2d(in_channels=8, out_channels=1, kernel_size=3, 
                                stride=2, padding=1, output_padding=(1,0)),
-            nn.Sigmoid(),
+            nn.ReLU(True),
             nn.BatchNorm2d(1),
             nn.Dropout2d(0.2),
            
@@ -280,7 +280,7 @@ class Decoder(nn.Module):
         x = self.decoder_conv(x)
         #print("decoder conv out",x.shape)   
         # Apply a sigmoid to force the output to be between 0 and 1 (valid pixel values)
-        x = torch.sigmoid(x)
+       
         return x
     
 class Autoencoder(nn.Module):
@@ -395,7 +395,7 @@ def main():
 
 
     # I think that Trainer automatically takes last checkpoint.
-    trainer = pl.Trainer(max_epochs=1, check_val_every_n_epoch=1, log_every_n_steps=1, 
+    trainer = pl.Trainer(max_epochs=100, check_val_every_n_epoch=5, log_every_n_steps=1, 
                          deterministic=True,callbacks=[early_stop_callback], 
                          gradient_clip_val=0.5,
                          gradient_clip_algorithm="value") # adding gradient clip to avoid exploding gradients
