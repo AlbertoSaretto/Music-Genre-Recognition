@@ -10,7 +10,7 @@
 	- only 6s clip -> try longer clips
 	- no Optuna hyperparams tuning. Needs to be done.
 	- What normalization? Try MinMax?
-	TO DO: longer clips, data augmentation, w/wo layers, optimizers
+	**  TO DO: longer clips, data augmentation, w/wo layers, optimizers
 
 
 
