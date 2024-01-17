@@ -1,9 +1,16 @@
 # MGR 
 ## WHERE WE ARE // WEHERE ARE WE GOING
 
-1. CNN 1D: 
+* CNN 1D: 
 	- accuracy <30%
-
+	- dropout all layers + MaxPool
+	- no data augmentation
+	- no PCA
+	- c3 vs c4 ? (compare net with three and four layers)
+	- only 6s clip -> try longer clips
+	- no Optuna hyperparams tuning. Needs to be done.
+	- What normalization? Try MinMax?
+	TO DO: longer clips, data augmentation, w/wo layers, optimizers
 
 
 
