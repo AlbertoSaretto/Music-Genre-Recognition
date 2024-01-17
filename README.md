@@ -1,7 +1,18 @@
+# MGR 
+## WHERE WE ARE // WEHERE ARE WE GOING
+
+1. CNN 1D: 
+	- accuracy <30%
+
+
+
+
+
+-----------------------------------------------
 # MODELLI E RELATIVI PROBLEMI
 
 
--	CNN 1D: acc ??, optuna
+-	CNN 1D: acc <30%,  optuna
 -	CNN 2D : acc <40%, optuna (discutere full optuna, change lr)
 -	Transfer learning: acc 12.5%  necessari più layer predictor, ma RAM. CNN non hanno buona acc di per sè quindi forse cnn non estraggono abbastanza bene le feature da essere classificate. TL puoi pompare predictor finale perché meno parametri da allenare
 -	CNN 1D+2D: ? trainabile? Vanishing? Discutere numero parametri . Stare più accorti con predictor finale perché troppi parametri non stanno in RAM
