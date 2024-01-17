@@ -1,7 +1,7 @@
 # MGR 
 ## WHERE WE ARE // WHERE ARE WE GOING
 
-** Metrics to be added. General hyperparams tuning is needed. **
+** Metrics to be added. General hyperparams tuning is needed. No weights analysis done (farla alla fine) **
 
 * CNN 1D: 
 	- accuracy <30%
@@ -12,7 +12,7 @@
 	- only 6s clip -> try longer clips
 	- no Optuna hyperparams tuning. Needs to be done.
 	- What normalization? Try MinMax?
-        	- ** TO DO: longer clips, data augmentation, w/wo layers, optimizers**
+		- **TO DO: longer clips, data augmentation, w/wo layers, optimizers**
 
 * CNN 2D:
 	- accuracy <33%
@@ -26,8 +26,16 @@
 
 * MIXNET (1D+2D):
 	- Full train (pre-trained mixed model):
-		- $\sim$ 38% 
+		- $\sim$ 38% (validation)
+	- Transfer learning: 
+		- random accuracy
+		- **building blocks are wrong!**
 
+--- 
+### Exotic models.
+* SpatialTransformationNet: random.
+* Autoencoder + ResAutoencoder : boh.
+* LSTM?????
 
 
 
@@ -49,7 +57,6 @@ Come è stato affrontato:
 -	Gradient clipping
 -	Connessioni residuali + alleggerimento architettura (meno layer/neuroni)
 -	Ma l’unico che ha funzionato è cambiare la normalizzazione da minmax a v2.Normalize(mean,std calcolati su batch del dataset)
-**ATTENZIONE: Il problema era la mia funzione e si è risolto usando la funzione di Sklearn anziché la mia. Io mentirei e direi che si è risolto usando queste tecniche...**
-
+**ATTENZIONE: Il problema era la mia funzione e si è risolto usando la funzione di Sklearn anziché la mia.**
 ## MANCA TUTTA LA PARTE DI ANALISI DEI WEIGHTS 
 (vedi consegna su ppt)
