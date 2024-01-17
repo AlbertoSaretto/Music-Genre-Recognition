@@ -150,7 +150,7 @@ class MixNet(nn.Module):
 
     def forward(self, x):
         audio = x[0]
-        mel = x[1]
+        mel   = x[1]
         
         conv2d = self.conv_block2D(mel)
         max_pool = F.max_pool2d(conv2d, kernel_size=(125,1))

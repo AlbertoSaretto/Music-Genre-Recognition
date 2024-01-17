@@ -13,7 +13,8 @@ from torch.optim import Adadelta
 import pytorch_lightning as pl
 import pickle
 import utils
-from utils_mgr import DataAudio, create_subset, MinMaxScaler
+from utils_mgr import DataAudio, create_subset
+from sklearn.preprocessing import MinMaxScaler
 
 
 print("let's start")
@@ -54,13 +55,13 @@ def import_and_preprocess_data(architecture_type="1D"):
     # There are two ways to normalize data: 
     #   1. Using  v2.Normalize(mean=[1.0784853], std=[4.0071154]). These values are computed with utils_mgr.mean_computer() function.
     #   2. Using v2.Lambda and MinMaxScaler. This function is implemented in utils_mgr and resambles sklearn homonym function.
-
-    transforms = v2.Compose([v2.ToTensor(),
+    
+    transforms = v2.Compose([MinMaxScaler().fit_transform,
+        v2.ToTensor(),
         v2.RandomResizedCrop(size=(128,513), antialias=True), # Data Augmentation
         v2.RandomHorizontalFlip(p=0.5), # Data Augmentation
         v2.ToDtype(torch.float32, scale=True),
-        v2.Normalize(mean=[1.0784853], std=[4.0071154]),
-        #v2.Lambda(lambda x: MinMaxScaler(x)) # see utils_mgr
+        #v2.Normalize(mean=[1.0784853], std=[4.0071154]),
         ])
 
     # Create the datasets and the dataloaders
