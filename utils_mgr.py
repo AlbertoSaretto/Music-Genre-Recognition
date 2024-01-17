@@ -11,7 +11,7 @@ from tqdm import tqdm
 import warnings
 import h5py
 import os
-
+import gc
 
 #Function to extract audio signal from .mp3 file
 def getAudio(idx, AUDIO_DIR = 'data/fma_small'):
@@ -115,31 +115,37 @@ def get_stft(a, get_log = False):
         return a
     
 
+def get_mel(a, get_log = False):
+    if(get_log == False):
+        for j in range(len(a)):
+            audio = a[j, 0]
+            stft = np.abs(librosa.stft(audio, n_fft=4096, hop_length=2048))
+            mel = librosa.feature.melspectrogram(sr=44100, S=stft**2, n_mels=513)[:,:128]     
+            a[j ,0] = stft 
+        return a    
+    if(get_log == True):
+        for j in range(len(a)):
+            audio = a[j, 0]
+            stft = np.abs(librosa.stft(audio, n_fft=4096, hop_length=2048))
+            mel = librosa.feature.melspectrogram(sr=44100, S=stft**2, n_mels=513)[:,:128]   
+            mel = librosa.power_to_db(mel) 
+            a[j ,0] = mel
+        return a
+    
+
 def get_mel_from_clip(c_stft):
     for j in range(len(c_stft)):
         clip = c_stft[j,0]
-        mel = librosa.feature.melspectrogram(sr=22050, S=clip**2, n_mels=513)
+        mel = librosa.feature.melspectrogram(sr=44100, S=clip**2, n_mels=513)
         c_stft[j,0] = librosa.power_to_db(mel)
     return c_stft   
 
 
 
-def get_mfcc(a):
-        for j in range(len(a)):
-            audio = a[j, 0]
-            stft = np.abs(librosa.stft(audio, n_fft=1024, hop_length=512)) 
-            mel = librosa.feature.melspectrogram(sr=22050, S=stft**2)  
-            mfcc = librosa.feature.mfcc(S=librosa.power_to_db(mel), n_mfcc=20)
-            mfcc = skl.preprocessing.StandardScaler().fit_transform(mfcc)
-            a[j ,0] = stft 
-        return a
 
-
-
-'''
 #Function to generate shorter data clips 
 
-def clip_stft(a, n_samples):
+def clip_mel(a, n_samples):
     a_clip = np.array([0,0])
     for j in range(len(a)):
         full = a[j, 0].T
@@ -168,7 +174,6 @@ def clip_audio(df, n_samples):
             
            
     return data_clip[1:]
-'''
 
 
 class DataAudio(Dataset):
@@ -214,7 +219,7 @@ class DataAudio(Dataset):
                 stft = np.abs(librosa.stft(audio, n_fft=4096, hop_length=2048))
                 
                 mel = librosa.feature.melspectrogram(sr=sr, S=stft**2, n_mels=513)[:,:128]
-                mel = librosa.power_to_db(mel, ref=np.max).T
+                mel = librosa.power_to_db(mel).T
                 return mel
             
             return audio[np.newaxis,:]
@@ -246,11 +251,11 @@ def pca_transform(clips, n_components=0.99):
     from sklearn.decomposition import PCA
 
     """
-    It's necessary to manipulate the data in order to apply PCA, since it requires a 2D array as input (number of elements, number of features)
+    It's necessary to manipulate the data in order to apply PCA, since it requires a 2D array as input
     First X is extracted, then it's reshaped in a 2D array with vstack,
     then PCA is applied and finally the data is reshaped again
     
-    Examples of shapes, using import_and_preprocess_data with window of 22050/10 samples:
+    Examples of shapes, using import_and_preprocess_data with window of 22050/10
 
     clip.shape = (59243,2)
     X.shape = (59243,)
@@ -390,37 +395,29 @@ class DataAudioH5_colab(Dataset):
            
         return x,y
 
+
+'''
 def MinMaxScaler(Tensor):
     # Applies MinMaxScaler to a tensor as described in sklearn.preprocessing.MinMaxScaler
     import torch
     Xmin = torch.min(Tensor)
     Xmax = torch.max(Tensor)
     return (Tensor-Xmin)/(Xmax-Xmin)
+'''
 
 
-
-
-
-
-def mean_computer_2D_stft(n_train=1):
-    import gc
-    from utils_mgr import get_stft, clip_stft
-    """
-    Compute the mean and std of the 2D dataset
-    """
-           
-    train =  np.load(f"Audio/training_{n_train}.npy", allow_pickle = True)
+def mean_2D_mel(dataset):
     
     print("getting stft")
-    stft = get_stft(train)
+    stft = get_stft(dataset)
    
-    del train
+    del dataset
     gc.collect()
 
     # take each song and splits it into clips of n_samples 
     # creates 
     print("making clips")
-    clip = clip_stft(stft, 128)
+    clip = clip_mel(stft, 128)
     print("making clips")
     
     print("stacking")
@@ -428,9 +425,21 @@ def mean_computer_2D_stft(n_train=1):
     mean = np.mean(stacked,axis=(0,1,2))
     std = np.std(stacked,axis=(0,1,2))
 
-    print("mean",mean)
-    print("std",std)
+    return mean,std
 
+def mean_1D(dataset):
+
+    # take each song and splits it into clips of n_samples 
+    # creates 
+    print("making clips")
+    clip = clip_audio(dataset, 2**18)
+    print("making clips")
+    
+    print("stacking")
+    stacked = np.stack(clip[:,0],axis=0)
+    mean = np.mean(stacked,axis=(0,1,2))
+    std = np.std(stacked,axis=(0,1,2))
+    
     return mean,std
 
 
