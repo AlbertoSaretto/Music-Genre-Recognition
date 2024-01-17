@@ -16,8 +16,8 @@ import time
 import pickle
 import torch.nn.init as init
 
-
-from utils_mgr import DataAudio, create_subset, MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler
+from utils_mgr import DataAudio, create_subset
 import utils
 
 """
@@ -113,16 +113,15 @@ def import_and_preprocess_data(architecture_type="2D"):
 
     # There are two ways to normalize data: 
     #   1. Using  v2.Normalize(mean=[1.0784853], std=[4.0071154]). These values are computed with utils_mgr.mean_computer() function.
-    #   2. Using v2.Lambda and MinMaxScaler. This function is implemented in utils_mgr and resambles sklearn homonym function.
+    #  2. Using MinMaxScaler() from sklearn.
 
-    transforms = v2.Compose([v2.ToTensor(),
+    transforms = v2.Compose([MinMaxScaler().fit_transform,
+        v2.ToTensor(),
         v2.RandomResizedCrop(size=(128,513), antialias=True), # Data Augmentation
         v2.RandomHorizontalFlip(p=0.5), # Data Augmentation
         v2.ToDtype(torch.float32, scale=True),
-        v2.Normalize(mean=[1.0784853], std=[4.0071154]),
-        #MinMaxScaler) # see utils_mgr
+        #v2.Normalize(mean=[1.0784853], std=[4.0071154]),
         ])
-
     # Create the datasets and the dataloaders
     train_dataset    = DataAudio(train_set, transform = transforms,type=architecture_type)
     train_dataloader = DataLoader(train_dataset, batch_size=64, shuffle=True, num_workers=os.cpu_count())
@@ -148,19 +147,19 @@ class Encoder(nn.Module):
             # First convolutional layer
             nn.Conv2d(in_channels=1, out_channels=8, kernel_size=3, 
                       stride=2, padding=1),
-            nn.Sigmoid(),
+            nn.ReLU(True),
             nn.BatchNorm2d(8),
             nn.Dropout2d(0.2),
             # Second convolutional layer
             nn.Conv2d(in_channels=8, out_channels=16, kernel_size=3, 
                       stride=2, padding=1),
-            nn.Sigmoid(),
+            nn.ReLU(True),
             nn.BatchNorm2d(16),
             nn.Dropout2d(0.2),
             # Third convolutional layer
             nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3, 
                       stride=2, padding=0),
-            nn.Sigmoid(),
+            nn.ReLU(True),
             nn.BatchNorm2d(32),
             nn.Dropout2d(0.2),
         )
@@ -172,10 +171,10 @@ class Encoder(nn.Module):
         self.encoder_lin = nn.Sequential(
             # First linear layer
             nn.Linear(in_features= 32, out_features=64),
-            nn.Sigmoid(),
+            nn.ReLU(True),
             # Second linear layer
             nn.Linear(in_features=64, out_features=encoded_space_dim),
-            nn.Sigmoid()
+            nn.ReLU(True),
         )
         
 
@@ -217,10 +216,10 @@ class Decoder(nn.Module):
         self.decoder_lin = nn.Sequential(
             # First linear layer
             nn.Linear(in_features=encoded_space_dim, out_features=64),
-            nn.Sigmoid(),
+            nn.ReLU(True),
             # Second linear layer
             nn.Linear(in_features=64, out_features= 32),
-            nn.Sigmoid()
+            nn.ReLU(True),
         )
 
         ### Unflatten
@@ -231,21 +230,21 @@ class Decoder(nn.Module):
             # First transposed convolution
             nn.ConvTranspose2d(in_channels=32, out_channels=16, kernel_size=3, 
                                stride=2, output_padding=(1,0)),
-            nn.Sigmoid(),
+            nn.ReLU(True),
             nn.BatchNorm2d(16),
             nn.Dropout2d(0.2),
            
             # Second transposed convolution
             nn.ConvTranspose2d(in_channels=16, out_channels=8, kernel_size=3, 
                                stride=2, padding=1, output_padding=(1,0)),
-            nn.Sigmoid(),
+            nn.ReLU(True),
             nn.BatchNorm2d(8),
             nn.Dropout2d(0.2),
            
             # Third transposed convolution
             nn.ConvTranspose2d(in_channels=8, out_channels=1, kernel_size=3, 
                                stride=2, padding=1, output_padding=(1,0)),
-            nn.Sigmoid(),
+            nn.ReLU(True),
             nn.BatchNorm2d(1),
             nn.Dropout2d(0.2),
            
@@ -341,7 +340,7 @@ class LitNet(pl.LightningModule):
         #label_batch = batch[1]
         out = self.net(x_batch)
         loss = F.mse_loss(out, x_batch)
-        print("loss",loss.item())
+        #print("loss",loss.item())
         """
         print("loss",loss.item())
         print("x_batch",x_batch,"\n")
@@ -395,7 +394,7 @@ def main():
 
 
     # I think that Trainer automatically takes last checkpoint.
-    trainer = pl.Trainer(max_epochs=1, check_val_every_n_epoch=1, log_every_n_steps=1, 
+    trainer = pl.Trainer(max_epochs=100, check_val_every_n_epoch=2, log_every_n_steps=1, 
                          deterministic=True,callbacks=[early_stop_callback], 
                          gradient_clip_val=0.5,
                          gradient_clip_algorithm="value") # adding gradient clip to avoid exploding gradients
