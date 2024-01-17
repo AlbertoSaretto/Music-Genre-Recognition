@@ -1,5 +1,5 @@
 # MGR 
-## WHERE WE ARE // WEHERE ARE WE GOING
+## WHERE WE ARE // WHERE ARE WE GOING
 
 * CNN 1D: 
 	- accuracy <30%
@@ -12,6 +12,15 @@
 	- What normalization? Try MinMax?
         - ** TO DO: longer clips, data augmentation, w/wo layers, optimizers**
 
+* CNN 2D:
+	- accuracy <33%
+	- MEL only (in Old trovi STFT ma è da rifare, very promising)
+	- need to tune MEL BINS ( <513 bins ? )
+	- 6s clips only -> try longer/shorter
+	- logarithms are OK
+	- data augmentation DONE
+	- v2.Norm vs MinMaxScaler ? 
+		-  TO DO 
 
 
 
