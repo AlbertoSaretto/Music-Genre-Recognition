@@ -246,11 +246,11 @@ def pca_transform(clips, n_components=0.99):
     from sklearn.decomposition import PCA
 
     """
-    It's necessary to manipulate the data in order to apply PCA, since it requires a 2D array as input
+    It's necessary to manipulate the data in order to apply PCA, since it requires a 2D array as input (number of elements, number of features)
     First X is extracted, then it's reshaped in a 2D array with vstack,
     then PCA is applied and finally the data is reshaped again
     
-    Examples of shapes, using import_and_preprocess_data with window of 22050/10
+    Examples of shapes, using import_and_preprocess_data with window of 22050/10 samples:
 
     clip.shape = (59243,2)
     X.shape = (59243,)
