@@ -22,7 +22,7 @@
 	- logarithms are OK
 	- data augmentation DONE
 	- v2.Norm vs MinMaxScaler ? 
-		-  **TO DO: many trainings with STFT only; different MELS; longer clips **
+		-  **TO DO: many trainings with STFT only; different MELS; longer clips**
 
 * MIXNET (1D+2D):
 	- Full train (pre-trained mixed model):
