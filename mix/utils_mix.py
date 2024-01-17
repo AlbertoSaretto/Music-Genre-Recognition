@@ -358,11 +358,6 @@ class DataAudio_double(Dataset):
     def create_input(self, i):
       
         # Get audio
-
-        # load audio track
-        #with warnings.catch_warnings():
-        #    warnings.simplefilter('ignore')
-
         
         with warnings.catch_warnings():
             warnings.simplefilter('ignore')

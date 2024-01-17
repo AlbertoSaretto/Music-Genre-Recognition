@@ -58,10 +58,7 @@ def import_and_preprocess_data(archtecture_type = "1D"):
     # Standard transformations for images
     # Mean and std are computed on one file of the training set
     transforms = v2.Compose([torch.Tensor,
-                            torch.nn.Lambda(lambda x: x / 0.21469156) # To normalize data. 
-                                                                        # 0.21469156 is the std of the training set
-                                                                        # mean is 0
-                                ])  
+                            lambda x: x/0.21469156])  #To normalize data
 
     # Create the datasets and the dataloaders
     train_dataset    = DataAudio(train_set, transform = transforms, type=archtecture_type)
@@ -118,7 +115,7 @@ class NNET1D(nn.Module):
         
 
         self.fc = nn.Sequential(
-            nn.Linear(256, 128), 
+            nn.Linear(265, 128), 
             nn.ReLU(inplace = True),
             nn.Dropout(p=0.2),
             nn.Linear(128, 64),
@@ -261,7 +258,7 @@ def load_optuna( file_path = "./trial.pickle"):
     return hyperparameters
  
 
-def main():
+def main(max_epochs):
     pl.seed_everything(666)
       
     # Define the EarlyStopping callback
@@ -275,7 +272,7 @@ def main():
 
 
     # I think that Trainer automatically takes last checkpoint.
-    trainer = pl.Trainer(max_epochs=100, check_val_every_n_epoch=2, log_every_n_steps=1, 
+    trainer = pl.Trainer(max_epochs=max_epochs, check_val_every_n_epoch=5, log_every_n_steps=1, 
                          deterministic=True,callbacks=[early_stop_callback], ) # profiler="simple" remember to add this and make fun plots
     
     #hyperparameters = load_optuna()
