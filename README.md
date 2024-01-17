@@ -1,6 +1,8 @@
 # MGR 
 ## WHERE WE ARE // WHERE ARE WE GOING
 
+** Metrics to be added. General hyperparams tuning is needed. **
+
 * CNN 1D: 
 	- accuracy <30%
 	- dropout all layers + MaxPool
@@ -10,7 +12,7 @@
 	- only 6s clip -> try longer clips
 	- no Optuna hyperparams tuning. Needs to be done.
 	- What normalization? Try MinMax?
-        - ** TO DO: longer clips, data augmentation, w/wo layers, optimizers**
+        	- ** TO DO: longer clips, data augmentation, w/wo layers, optimizers**
 
 * CNN 2D:
 	- accuracy <33%
@@ -20,7 +22,11 @@
 	- logarithms are OK
 	- data augmentation DONE
 	- v2.Norm vs MinMaxScaler ? 
-		-  TO DO 
+		-  **TO DO: many trainings with STFT only; different MELS; longer clips **
+
+* MIXNET (1D+2D):
+	- Full train (pre-trained mixed model):
+		- $\sim$ 38% 
 
 
 
