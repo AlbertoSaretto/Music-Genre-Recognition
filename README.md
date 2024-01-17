@@ -1,7 +1,7 @@
 # MGR 
 ## WHERE WE ARE // WHERE ARE WE GOING
 
-** Metrics to be added. General hyperparams tuning is needed. No weights analysis done (farla alla fine) **
+**Metrics to be added. General hyperparams tuning is needed. No weights analysis done (farla alla fine)**
 
 * CNN 1D: 
 	- accuracy <30%
