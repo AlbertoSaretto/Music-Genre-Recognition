@@ -90,10 +90,10 @@ def import_and_preprocess_data(PATH_DATA = "../."):
     # Create the datasets and the dataloaders
      
     train_dataset    = DataAudio_double(train_set, transform = transforms)
-    train_dataloader = DataLoader(train_dataset, batch_size=64, shuffle=True, num_workers=os.cpu_count())
+    train_dataloader = DataLoader(train_dataset, batch_size=16, shuffle=True, num_workers=8)
     
     val_dataset      = DataAudio_double(val_set, transform = transforms)
-    val_dataloader   = DataLoader(val_dataset, batch_size=64, shuffle=False, num_workers=os.cpu_count())
+    val_dataloader   = DataLoader(val_dataset, batch_size=16, shuffle=False, num_workers=8)
     
     #test_dataset     = DataAudio_double(test_set, transform = transforms)
     #test_dataloader  = DataLoader(test_dataset, batch_size=64, shuffle=False, num_workers=os.cpu_count())
