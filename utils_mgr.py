@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 from torch.utils.data import Dataset
 import librosa
 from tensorflow.keras.utils import to_categorical
@@ -14,12 +15,12 @@ import os
 import gc
 
 #Function to extract audio signal from .mp3 file
-def getAudio(idx, AUDIO_DIR = 'data/fma_small'):
+def getAudio(idx, sr_i=None, AUDIO_DIR = 'data/fma_small'):
     #Get the audio file path
     filename = utils.get_audio_path(AUDIO_DIR, idx)
 
     #Load the audio (sr = sampling rate, number of audio carries per second)
-    x, sr = librosa.load(filename, sr=None, mono=True)  #sr=None to consider original sampling rate
+    x, sr = librosa.load(filename, sr=sr_i, mono=True)  #sr=None to consider original sampling rate
 
     return x, sr
 
@@ -442,4 +443,52 @@ def mean_1D(dataset):
     
     return mean,std
 
+
+def import_and_preprocess_data():
+    # Load metadata and features.
+    tracks = utils.load('data/fma_metadata/tracks.csv')
+
+
+    #Select the desired subset among the entire dataset
+    sub = 'small'
+    raw_subset = tracks[tracks['set', 'subset'] <= sub] 
+    
+    #Creation of clean subset for the generation of training, test and validation sets
+    meta_subset= utils_mgr.create_subset(raw_subset)
+
+    # Remove corrupted files
+    corrupted = [98565, 98567, 98569, 99134, 108925, 133297]
+    meta_subset = meta_subset[~meta_subset['index'].isin(corrupted)]
+
+    #Split between taining, validation and test set according to original FMA split
+
+    train_set = meta_subset[meta_subset["split"] == "training"]
+    val_set   = meta_subset[meta_subset["split"] == "validation"]
+    test_set  = meta_subset[meta_subset["split"] == "test"]
+
+    return train_set, val_set, test_set
+
+
+def display_mel(idx, n_samples, n_fft, n_mels, time_bin, sr_i=None):
+
+    audio, sr = getAudio(idx, sr_i)
+
+    #Select random clip from audio
+    start = np.random.randint(0, (audio.shape[0]-n_samples))
+    audio = audio[start:start+n_samples]
+    
+    #Get 2D spectrogram
+    stft = np.abs(librosa.stft(audio, n_fft=n_fft, hop_length=int(n_fft/2)))              
+    mel = librosa.feature.melspectrogram(sr=sr, S=stft**2, n_mels=n_mels)
+    print('Original mel spectrogram (transpose shape is: ', mel.T.shape)
+    mel = mel[:,:time_bin]
+    mel = librosa.power_to_db(mel)
+    
+    # Plot the log mel spectrogram for visualization purpose 
+    plt.figure(figsize=(7, 3))
+    librosa.display.specshow(mel, sr=sr, hop_length=int(n_fft/2), x_axis='time', y_axis='mel')
+    plt.colorbar(format='%+2.0f dB')
+    plt.show()
+
+    return 0
 
