@@ -397,15 +397,6 @@ class DataAudioH5_colab(Dataset):
         return x,y
 
 
-'''
-def MinMaxScaler(Tensor):
-    # Applies MinMaxScaler to a tensor as described in sklearn.preprocessing.MinMaxScaler
-    import torch
-    Xmin = torch.min(Tensor)
-    Xmax = torch.max(Tensor)
-    return (Tensor-Xmin)/(Xmax-Xmin)
-'''
-
 
 def mean_2D_mel(dataset):
     
