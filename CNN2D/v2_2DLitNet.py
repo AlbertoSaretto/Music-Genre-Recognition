@@ -4,12 +4,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
-import os 
-from torch.optim import Adadelta
+from torch.optim import Adadelta, Adam
 import pytorch_lightning as pl
 import pickle
 import utils
-from utils_mgr import DataAudio, create_subset, MinMaxScaler
+from utils_mgr import DataAudio, create_subset, import_and_preprocess_data
+from sklearn.preprocessing import MinMaxScaler
 import os
 
 
@@ -18,60 +18,33 @@ print("let's start")
 ##tensorboard --logdir=lightning_logs/ 
 # to visualize logs
 
-def import_and_preprocess_data(architecture_type="1D"):
+# Set the seed for reproducible results
+pl.seed_everything(0)
+
+#Create metadata for train, val and test sets
+train_set, val_set, test_set = import_and_preprocess_data()
+
+# Standard transformations for spectrograms
+transforms = v2.Compose([MinMaxScaler().fit_transform,
+                         v2.ToTensor(),
+                         #v2.RandomResizedCrop(size=(128,513), antialias=True), # Data Augmentation
+                         #v2.RandomHorizontalFlip(p=0.5), # Data Augmentation
+                         # WE NEED MORE DATA AUGMENTATION (DELETION OF ROWS OR COLUMNS IN THE SPECTROGRAMS)
+                         v2.ToDtype(torch.float32, scale=True),
+                         ])
+
+# Create the datasets and the dataloaders
+train_dataset    = DataAudio(train_set, transform = transforms,type='2D')
+train_dataloader = DataLoader(train_dataset, batch_size=64, shuffle=True, num_workers=os.cpu_count())
+
+val_dataset      = DataAudio(val_set, transform = transforms,type='2D')
+val_dataloader   = DataLoader(val_dataset, batch_size=64, shuffle=False, num_workers=os.cpu_count())
+
+test_dataset     = DataAudio(test_set, transform = transforms,type='2D')
+test_dataloader  = DataLoader(test_dataset, batch_size=64, shuffle=False, num_workers=os.cpu_count())
 
 
-    """
-    This function uses metadata contained in tracks.csv to import mp3 files,
-    pass them through DataAudio class and eventually create Dataloaders.  
-    
-    """
-    # Load metadata and features.
-    tracks = utils.load('data/fma_metadata/tracks.csv')
 
-    #Select the desired subset among the entire dataset
-    sub = 'small'
-    raw_subset = tracks[tracks['set', 'subset'] <= sub] 
-    
-    #Creation of clean subset for the generation of training, test and validation sets
-    meta_subset= create_subset(raw_subset)
-
-    # Remove corrupted files
-    corrupted = [98565, 98567, 98569, 99134, 108925, 133297]
-    meta_subset = meta_subset[~meta_subset['index'].isin(corrupted)]
-
-    #Split between taining, validation and test set according to original FMA split
-
-    train_set = meta_subset[meta_subset["split"] == "training"]
-    val_set   = meta_subset[meta_subset["split"] == "validation"]
-    test_set  = meta_subset[meta_subset["split"] == "test"]
-
-    # Standard transformations for images
-
-    # There are two ways to normalize data: 
-    #   1. Using  v2.Normalize(mean=[1.0784853], std=[4.0071154]). These values are computed with utils_mgr.mean_computer() function.
-    #   2. Using v2.Lambda and MinMaxScaler. This function is implemented in utils_mgr and resambles sklearn homonym function.
-
-    transforms = v2.Compose([v2.ToTensor(),
-        v2.RandomResizedCrop(size=(128,513), antialias=True), # Data Augmentation
-        v2.RandomHorizontalFlip(p=0.5), # Data Augmentation
-        v2.ToDtype(torch.float32, scale=True),
-        #v2.Normalize(mean=[1.0784853], std=[4.0071154]),
-        v2.Lambda(lambda x: MinMaxScaler(x)) # see utils_mgr
-        ])
-
-    # Create the datasets and the dataloaders
-    train_dataset    = DataAudio(train_set, transform = transforms,type=architecture_type)
-    train_dataloader = DataLoader(train_dataset, batch_size=64, shuffle=True, num_workers=os.cpu_count())
-
-    val_dataset      = DataAudio(val_set, transform = transforms,type=architecture_type)
-    val_dataloader   = DataLoader(val_dataset, batch_size=64, shuffle=False, num_workers=os.cpu_count())
-
-    test_dataset     = DataAudio(test_set, transform = transforms,type=architecture_type)
-    test_dataloader  = DataLoader(test_dataset, batch_size=64, shuffle=False, num_workers=os.cpu_count())
-
-
-    return train_dataloader, val_dataloader, test_dataloader
 
 
 class NNET2(nn.Module):
@@ -166,7 +139,7 @@ class LitNet(pl.LightningModule):
             print("optimzier parameters:", self.optimizer)
         except:
                 print("Using default optimizer parameters")
-                self.optimizer = Adadelta(self.net.parameters())
+                self.optimizer = Adam(self.net.parameters())
                 print("optimzier parameters:", self.optimizer)
         
 
