@@ -2,6 +2,7 @@
 ## WHERE WE ARE // WHERE ARE WE GOING
 
 **Metrics to be added. General hyperparams tuning is needed. No weights analysis done (farla alla fine)**
+**remember to show explorative analysis of dataset, eg data is balanced?**
 
 * CNN 1D: 
 	- accuracy <30%
