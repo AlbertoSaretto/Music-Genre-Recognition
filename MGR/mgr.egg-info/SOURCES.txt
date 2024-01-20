@@ -1,0 +1,13 @@
+README.md
+setup.py
+mgr/__init__.py
+mgr/datasets.py
+mgr/models.py
+mgr/utils.py
+mgr/utils_mgr.py
+mgr/version.py
+mgr.egg-info/PKG-INFO
+mgr.egg-info/SOURCES.txt
+mgr.egg-info/dependency_links.txt
+mgr.egg-info/requires.txt
+mgr.egg-info/top_level.txt

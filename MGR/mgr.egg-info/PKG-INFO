@@ -1,0 +1,11 @@
+Metadata-Version: 2.1
+Name: mgr
+Version: 0.1.0
+Summary: Package for the Music Genre Recognition (MGR) project
+Author: Diego Bonato, Alberto Saretto, Luca Menti
+Requires-Dist: numpy
+Requires-Dist: torch
+
+# MGR
+
+Swag, funazionerà questoooo??"!???!?
