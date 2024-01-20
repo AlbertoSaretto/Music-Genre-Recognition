@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from torch.utils.data import Dataset
 import librosa
 from tensorflow.keras.utils import to_categorical
-import utils
+import mgr.utils as utils
 import librosa
 from sklearn.preprocessing import LabelEncoder
 import time
@@ -15,7 +15,7 @@ import os
 import gc
 
 #Function to extract audio signal from .mp3 file
-def getAudio(idx, sr_i=None, AUDIO_DIR = 'data/fma_small'):
+def getAudio(idx, sr_i=None, AUDIO_DIR = '/home/diego/Music-Genre-Recognition/data/fma_small/'):
     #Get the audio file path
     filename = utils.get_audio_path(AUDIO_DIR, idx)
 
@@ -175,77 +175,7 @@ def clip_audio(df, n_samples):
             
            
     return data_clip[1:]
-
-
-class DataAudio(Dataset):
-
-    def __init__(self, df, transform = None, type = "1D"):
-        
-        # Get track index
-        self.track_ids = df['index'].values
-
-        #Get genre label
-        self.label = df['labels'].values
-
-        #Transform
-        self.transform = transform
-
-        #Select type of input
-        self.type = type
-
-    def __len__(self):
-
-        return len(self.track_ids)
-
-
-    def create_input(self, i):
-      
-        # Get audio
-
-        # load audio track
-        #with warnings.catch_warnings():
-        #    warnings.simplefilter('ignore')
-
-        
-        with warnings.catch_warnings():
-            warnings.simplefilter('ignore')
-            audio, sr = getAudio(self.track_ids[i])
-
-            #Select random clip from audio
-            start = np.random.randint(0, (audio.shape[0]-2**18))
-            audio = audio[start:start+2**18]
-            
-            if(self.type=="2D"):
-                #Get 2D spectrogram
-                stft = np.abs(librosa.stft(audio, n_fft=4096, hop_length=2048))
-                
-                mel = librosa.feature.melspectrogram(sr=sr, S=stft**2, n_mels=513)[:,:128]
-                mel = librosa.power_to_db(mel).T
-                return mel
-            
-            return audio[np.newaxis,:]
-        
-            
-
-    def __getitem__(self, idx):
-
-        # get input and label
-        try:
-            x = self.create_input(idx)
-            y = self.label[idx] 
-        except:
-            print("\nNot able to load track number ", self.track_ids[idx], " Loading next one\n")
-            x = self.create_input(idx+1)
-            y = self.label[idx]
-        
-
-        if self.transform:
-            x = self.transform(x)
-           
-        return x,y
-
-
-    
+   
 
 def pca_transform(clips, n_components=0.99):
 
@@ -279,124 +209,6 @@ def pca_transform(clips, n_components=0.99):
     clips[:,0] = np.split(X_, clips.shape[0], axis=0)
 
     return clips
-
-
-
-class DataAudioH5(Dataset):
-
-    def __init__(self, dataset_folder="./h5_experimentation/", dataset_type="train", transform=None,input_type="2D"):
-        
-        self.x = h5py.File(os.path.join(dataset_folder, f"{dataset_type}_x.h5"),"r")[f"{dataset_type}"]
-        self.y = h5py.File(os.path.join(dataset_folder, f"{dataset_type}_y.h5"),"r")[f"{dataset_type}"]
-        self.transform = transform
-        #Select type of input
-        self.type = input_type
-
-    def __len__(self):
-
-        return self.x.len()
-
-    def create_input(self, audio,sr=22050):
-
-        """
-        This function takes an audio clip and creates the input for the model
-        """
-      
-        # Get audio
-
-        # load audio track
-        #with warnings.catch_warnings():
-        #    warnings.simplefilter('ignore')
-
-        #Select random clip from audio
-        start = np.random.randint(0, (audio.shape[0]-2**18))
-        audio = audio[start:start+2**18]
-        
-        if self.type ==  "2D":
-            
-            #Get 2D spectrogram
-            stft = np.abs(librosa.stft(audio, n_fft=4096, hop_length=2048))
-            
-            mel = librosa.feature.melspectrogram(sr=sr, S=stft**2, n_mels=513)[:,:128]
-            mel = librosa.power_to_db(mel).T
-            return mel
-    
-        return audio[np.newaxis,:]
-
-
-
-    def __getitem__(self, idx):
-
-        # get input and label
-
-        audio = self.x[idx]
-        x = self.create_input(audio)
-        y = self.y[idx]
-
-        if self.transform:
-            x = self.transform(x)
-           
-        return x,y
-
-
-
-class DataAudioH5_colab(Dataset):
-
-    def __init__(self, file_x,file_y,dataset_folder="./h5_experimentation/", dataset_type="train", transform=None,input_type="2D"):
-        
-        self.x = h5py.File(os.path.join(dataset_folder, f"{dataset_type}_x.h5"),"r")[f"{dataset_type}"]
-        self.y = h5py.File(os.path.join(dataset_folder, f"{dataset_type}_y.h5"),"r")[f"{dataset_type}"]
-        self.transform = transform
-        #Select type of input
-        self.type = input_type
-
-    def __len__(self):
-
-        return self.x.len()
-
-    def create_input(self, audio,sr=22050):
-
-        """
-        This function takes an audio clip and creates the input for the model
-        """
-      
-        # Get audio
-
-        # load audio track
-        #with warnings.catch_warnings():
-        #    warnings.simplefilter('ignore')
-
-        #Select random clip from audio
-        start = np.random.randint(0, (audio.shape[0]-2**18))
-        audio = audio[start:start+2**18]
-        
-        if self.type ==  "2D":
-            
-            #Get 2D spectrogram
-            stft = np.abs(librosa.stft(audio, n_fft=4096, hop_length=2048))
-            
-            mel = librosa.feature.melspectrogram(sr=sr, S=stft**2, n_mels=513)[:,:128]
-            mel = librosa.power_to_db(mel).T
-            return mel[np.newaxis,:]
-    
-        return audio[np.newaxis,:]
-
-
-
-    def __getitem__(self, idx):
-
-        # get input and label
-
-        audio = self.x[idx]
-        x = self.create_input(audio)
-        y = self.y[idx]
-
-        if self.transform:
-            x = self.transform(x)
-           
-        return x,y
-
-
 
 def mean_2D_mel(dataset):
     
@@ -435,9 +247,9 @@ def mean_1D(dataset):
     return mean,std
 
 
-def import_and_preprocess_data():
+def import_and_preprocess_data(PATH_DATA="data/"):
     # Load metadata and features.
-    tracks = utils.load('data/fma_metadata/tracks.csv')
+    tracks = utils.load(PATH_DATA+'fma_metadata/tracks.csv')
 
 
     #Select the desired subset among the entire dataset
@@ -445,7 +257,7 @@ def import_and_preprocess_data():
     raw_subset = tracks[tracks['set', 'subset'] <= sub] 
     
     #Creation of clean subset for the generation of training, test and validation sets
-    meta_subset= utils_mgr.create_subset(raw_subset)
+    meta_subset= create_subset(raw_subset)
 
     # Remove corrupted files
     corrupted = [98565, 98567, 98569, 99134, 108925, 133297]
@@ -483,3 +295,18 @@ def display_mel(idx, n_samples, n_fft, n_mels, time_bin, sr_i=None):
 
     return 0
 
+def create_dataloaders(PATH_DATA="../data/",transforms=None, type='1D',batch_size=64,num_workers=os.cpu_count()):
+    from mgr.datasets import DataAudio
+    from torch.utils.data import DataLoader
+    
+    train_set, val_set, test_set = import_and_preprocess_data(PATH_DATA)
+
+    train_dataset  = DataAudio(train_set, transform = transforms, type=type)
+    val_dataset    = DataAudio(val_set, transform = transforms, type=type)
+    test_dataset   = DataAudio(test_set, transform = transforms, type=type)
+
+    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
+    val_dataloader   = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+    test_dataloader  = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+
+    return train_dataloader, val_dataloader, test_dataloader
