@@ -7,6 +7,7 @@ from torch.utils.data import Dataset, DataLoader
 from torch.optim import Adadelta
 import pytorch_lightning as pl
 
+from mgr.utils_mgr import compute_metrics
 
 # Define a general LightningModule (nn.Module subclass)
 # A LightningModule defines a full system (ie: a GAN, autoencoder, BERT or a simple Image Classifier).
@@ -20,8 +21,8 @@ class LitNet(pl.LightningModule):
         print('Network initialized')
         
         self.net = model_net
-        self.val_loss = []
-        self.train_loss = []
+        #self.val_loss = []
+        #self.train_loss = []
         self.best_val = np.inf
         
 
@@ -44,7 +45,36 @@ class LitNet(pl.LightningModule):
         label_batch = batch[1]
         out = self.net(x_batch)
         loss = F.cross_entropy(out, label_batch) # Diego nota: aggiungere weights in base a distribuzione classi dataset?
-        self.train_loss.append(loss.item())
+        #self.train_loss.append(loss.item())
+
+        
+        #Evaluation of metrics
+        # Accuracy is computed with explicit computation of True Positive and True Negative.
+        # Should be equal to accuract computed as val_acc = np.sum(np.argmax(label_batch.detach().cpu().numpy(), axis=1) == np.argmax(out.detach().cpu().numpy(), axis=1)) / len(label_batch)
+
+        accuracy, precision, recall, specificity, f1 = compute_metrics(out, label_batch)
+
+        train_acc  = accuracy.mean()
+        train_prec = precision.mean()
+        train_rec  = recall.mean()
+        train_spec = specificity.mean()
+        train_f1   = f1.mean()
+
+        print("Train accuracy: ", train_acc)
+        print("Train precision: ", train_prec)
+        print("Train recall: ", train_rec)
+        print("Train specificity: ", train_spec)
+        print("Train f1: ", train_f1)
+        print("\n")
+
+        self.log("train_loss", loss.item(), prog_bar=True)
+        self.log("train_acc", train_acc, prog_bar=True)
+        self.log("train_prec", train_prec, prog_bar=True)
+        self.log("train_rec", train_rec, prog_bar=True)
+        self.log("train_spec", train_spec, prog_bar=True)
+        self.log("train_f1", train_f1, prog_bar=True)
+
+
         return loss
 
     def validation_step(self, batch, batch_idx=None):
@@ -52,10 +82,10 @@ class LitNet(pl.LightningModule):
         # When the validation_step() is called,
         # the model has been put in eval mode and PyTorch gradients have been disabled. 
         # At the end of validation, the model goes back to training mode and gradients are enabled.
-        x_batch = batch[0]
+        x_batch     = batch[0]
         label_batch = batch[1]
 
-        out = self.net(x_batch)
+        out  = self.net(x_batch)
         loss = F.cross_entropy(out, label_batch)
 
         #Estimation of model accuracy
@@ -66,11 +96,37 @@ class LitNet(pl.LightningModule):
         argmax checks what is the index with the highest probability. Each index is related to a Music Genre.
         If the indexes are equal the classification is correct.
         """
-        val_acc = np.sum(np.argmax(label_batch.detach().cpu().numpy(), axis=1) == np.argmax(out.detach().cpu().numpy(), axis=1)) / len(label_batch)
+         #Evaluation of metrics
+        # Accuracy is computed with explicit computation of True Positive and True Negative.
+        # Should be equal to accuract computed as val_acc = np.sum(np.argmax(label_batch.detach().cpu().numpy(), axis=1) == np.argmax(out.detach().cpu().numpy(), axis=1)) / len(label_batch)
 
-        self.val_loss.append(loss.item())
+        accuracy, precision, recall, specificity, f1 = compute_metrics(out, label_batch)
+
+        val_acc  = accuracy.mean()
+        val_prec = precision.mean()
+        val_rec  = recall.mean()
+        val_spec = specificity.mean()
+        val_f1   = f1.mean()
+        print("Validation accuracy: ", val_acc)
+        print("Validation precision: ", val_prec)
+        print("Validation recall: ", val_rec)
+        print("Validation specificity: ", val_spec)
+        print("Validation f1: ", val_f1)
+        print("\n")
+
         self.log("val_loss", loss.item(), prog_bar=True)
         self.log("val_acc", val_acc, prog_bar=True)
+        self.log("val_prec", val_prec, prog_bar=True)
+        self.log("val_rec", val_rec, prog_bar=True)
+        self.log("val_spec", val_spec, prog_bar=True)
+        self.log("val_f1", val_f1, prog_bar=True)
+
+
+        val_acc_usual = np.sum(np.argmax(label_batch.detach().cpu().numpy(), axis=1) == np.argmax(out.detach().cpu().numpy(), axis=1)) / len(label_batch)
+
+        #self.val_loss.append(loss.item())
+        #self.log("val_loss", loss.item(), prog_bar=True)
+        self.log("val_acc_usual", val_acc_usual, prog_bar=True)
 
 
     def test_step(self, batch, batch_idx):
@@ -79,11 +135,32 @@ class LitNet(pl.LightningModule):
         label_batch = batch[1]
         out = self.net(x_batch)
         loss = F.cross_entropy(out, label_batch)
+        
+        accuracy, precision, recall, specificity, f1 = compute_metrics(out, label_batch)
 
-        test_acc = np.sum(np.argmax(label_batch.detach().cpu().numpy(), axis=1) == np.argmax(out.detach().cpu().numpy(), axis=1)) / len(label_batch)
-
+        test_acc  = accuracy.mean()
+        test_prec = precision.mean()
+        test_rec  = recall.mean()
+        test_spec = specificity.mean()
+        test_f1   = f1.mean()
+        print("Test accuracy: ", test_acc)
+        print("Test precision: ", test_prec)
+        print("Test recall: ", test_rec)
+        print("Test specificity: ", test_spec)
+        print("Test f1: ", test_f1)
+        print("\n")
+       
         self.log("test_loss", loss.item(), prog_bar=True)
         self.log("test_acc", test_acc, prog_bar=True)
+        self.log("test_prec", test_prec, prog_bar=True)
+        self.log("test_rec", test_rec, prog_bar=True)
+        self.log("test_spec", test_spec, prog_bar=True)
+        self.log("test_f1", test_f1, prog_bar=True)
+        
+        test_acc_usual = np.sum(np.argmax(label_batch.detach().cpu().numpy(), axis=1) == np.argmax(out.detach().cpu().numpy(), axis=1)) / len(label_batch)
+
+        #self.log("test_loss", loss.item(), prog_bar=True)
+        self.log("test_acc", test_acc_usual, prog_bar=True)
 
     def configure_optimizers(self):
 
