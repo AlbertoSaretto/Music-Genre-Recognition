@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
-from torch.optim import Adadelta
+from torch.optim import Adam
 import pytorch_lightning as pl
 
 from mgr.utils_mgr import compute_metrics
@@ -28,11 +28,11 @@ class LitNet(pl.LightningModule):
 
     # If no configurations regarding the optimizer are specified, use the default ones
         try:
-            self.optimizer = Adadelta(self.net.parameters(),
+            self.optimizer = Adam(self.net.parameters(),
                                        lr=config["lr"],rho=config["rho"], eps=config["eps"], weight_decay=config["weight_decay"])
         except:
                 print("Using default optimizer parameters")
-                self.optimizer = Adadelta(self.net.parameters(), lr = lr)
+                self.optimizer = Adam(self.net.parameters(), lr = lr)
 
 
     def forward(self,x):
