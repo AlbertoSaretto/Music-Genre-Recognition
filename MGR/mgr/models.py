@@ -9,7 +9,7 @@ import pytorch_lightning as pl
 
 from mgr.utils_mgr import compute_metrics
 #from sklearn.metrics import confusion_matrix, f1_score
-from torchmetrics.classification import MulticlassConfusionMatrix, MulticlassF1Score
+from torchmetrics.classification import MulticlassConfusionMatrix, MulticlassF1Score, MulticlassAccuracy
 # Define a general LightningModule (nn.Module subclass)
 # A LightningModule defines a full system (ie: a GAN, autoencoder, BERT or a simple Image Classifier).
 class LitNet(pl.LightningModule):
@@ -23,32 +23,10 @@ class LitNet(pl.LightningModule):
         
         self.net = model_net
 
+        self.accuracy = MulticlassAccuracy(num_classes=8)
         self.confusion_matrix = MulticlassConfusionMatrix(num_classes=8)
         self.f1_score = MulticlassF1Score(num_classes=8, average='macro')
-        #self.val_loss = []
-        #self.train_loss = []
-        #self.best_val = np.inf
-        """
-        Credo abbia più senso salvare una CM, piuttosto che una lista di predictions e true label, per poi calcolare cm solo alla fine
-        """
-        # Initialize confusion matrix
-        # The confusion matrix is a square matrix with dimensions equal to the number of classes
-        # The confusion matrix is initialized as an empty array.
-        # The confusion matrix is updated at each training step.
-        # The confusion matrix is a sum of all the confusion matrices of the batches.
-        # number of genres is computed as the number of output features of the last layer of the network [-1] and assuming that the
-        # last layer is a Linear layer [-2] ([-1][-1] is the softmax layer)
-        number_of_genres = list(self.net.children())[-1][-2].out_features
-        """
-        It is necessary to initialize the confusion matrix with the appropriate dimensions.
-        Otherwise if the first batch has a label that is not present in the first batch, the confusion matrix will have the wrong dimensions.
-        """
-        #self.confusion_matrix =  np.empty((number_of_genres, number_of_genres))
-        # Initialize f1 score as 0
-        # f1 score is 1 when there are no false positives and false negatives
-        # f1 score is 0 when there are no true positives and true negatives (all predictions are wrong)
-       # self.f1_score = 0    
-
+       
     # If no configurations regarding the optimizer are specified, use the default ones
         try:
             self.optimizer = Adam(self.net.parameters(),
@@ -69,32 +47,34 @@ class LitNet(pl.LightningModule):
         out         = self.net(x_batch)
         loss        = F.cross_entropy(out, label_batch) 
 
+        """
+        To see how to use the metrics, check the following link:
+        https://lightning.ai/docs/torchmetrics/stable/pages/lightning.html
+
+        Trying not to mix self.log with .update and .compute
+
+        """
         
         #Estimation of model accuracy
-        self.confusion_matrix.update(out.argmax(dim=1), label_batch.argmax(dim=1))
-        self.f1_score.update(out.argmax(dim=1), label_batch.argmax(dim=1))
-       
+        out_argmax = out.argmax(dim=1)
+        label_argmax = label_batch.argmax(dim=1)
+
+        self.log("train_loss", loss.item(), prog_bar=True,on_step=False,on_epoch=True)
+        self.log("train_acc", self.accuracy(out_argmax, label_argmax), prog_bar=True,on_step=False,on_epoch=True)
+        self.log("train_f1_score",self.f1_score(out_argmax, label_argmax), prog_bar=True,on_step=False,on_epoch=True)
+        self.confusion_matrix.update(out_argmax, label_argmax)
+        
         return loss
     
     def on_train_epoch_end(self):
-        print("On train epoch end dovresti salvare sta confusion matrix da qualche parte")
 
+        print("On train epoch end dovresti salvare sta confusion matrix da qualche parte")
         print("computing confusion matrix")
         cm = self.confusion_matrix.compute()
         print(cm)
-       
-
-        print("computing f1 score")
-        self.log("f1_score",self.f1_score.compute())
-       # print(self.f1_score.c)
-        
-        print("resetting confusion matrix")
         self.confusion_matrix.reset()
-        print("resetting f1 score")
-        self.f1_score.reset()
 
 
-        print(self.f1_score)
 
     def validation_step(self, batch, batch_idx=None):
         # validation_step defines the validation loop. It is independent of forward
@@ -108,45 +88,24 @@ class LitNet(pl.LightningModule):
         loss = F.cross_entropy(out, label_batch)
 
         #Estimation of model accuracy
-        """
-        Validation accuracy is computed as follows.
-        label_batch are the true labels. They are one-hot encoded (eg [1,0,0,0,0,0,0,0]). 
-        out are the predicted labels. They are a 8-dim vector of probabilities.
-        argmax checks what is the index with the highest probability. Each index is related to a Music Genre.
-        If the indexes are equal the classification is correct.
-        """
-         #Evaluation of metrics
-        # Accuracy is computed with explicit computation of True Positive and True Negative.
-        # Should be equal to accuract computed as val_acc = np.sum(np.argmax(label_batch.detach().cpu().numpy(), axis=1) == np.argmax(out.detach().cpu().numpy(), axis=1)) / len(label_batch)
-        """
-        accuracy, precision, recall, specificity, f1 = compute_metrics(out, label_batch)
+        out_argmax = out.argmax(dim=1)
+        label_argmax = label_batch.argmax(dim=1)
 
-        val_acc  = accuracy.mean()
-        val_prec = precision.mean()
-        val_rec  = recall.mean()
-        val_spec = specificity.mean()
-        val_f1   = f1.mean()
-        print("Validation accuracy: ", val_acc)
-        print("Validation precision: ", val_prec)
-        print("Validation recall: ", val_rec)
-        print("Validation specificity: ", val_spec)
-        print("Validation f1: ", val_f1)
-        print("\n")
-
-        self.log("val_loss", loss.item(), prog_bar=True)
-        self.log("val_acc", val_acc, prog_bar=True)
-        self.log("val_prec", val_prec, prog_bar=True)
-        self.log("val_rec", val_rec, prog_bar=True)
-        self.log("val_spec", val_spec, prog_bar=True)
-        self.log("val_f1", val_f1, prog_bar=True)
+        self.log("val_loss", loss.item(), prog_bar=True,on_step=False,on_epoch=True)
+        self.log("val_acc", self.accuracy(out_argmax, label_argmax), prog_bar=True,on_step=False,on_epoch=True)
+        self.log("val_f1_score",self.f1_score(out_argmax, label_argmax), prog_bar=True,on_step=False,on_epoch=True)
+        self.confusion_matrix.update(out_argmax, label_argmax)
 
 
-        val_acc_usual = np.sum(np.argmax(label_batch.detach().cpu().numpy(), axis=1) == np.argmax(out.detach().cpu().numpy(), axis=1)) / len(label_batch)
+    
+    def on_validation_epoch_end(self):
 
-        #self.val_loss.append(loss.item())
-        #self.log("val_loss", loss.item(), prog_bar=True)
-        self.log("val_acc_usual", val_acc_usual, prog_bar=True)
-        """
+        print("On validation epoch end dovresti salvare sta confusion matrix da qualche parte")
+        print("computing confusion matrix")
+        cm = self.confusion_matrix.compute()
+        print(cm)
+        self.confusion_matrix.reset()
+
 
     def test_step(self, batch, batch_idx):
         # this is the test loop
@@ -154,34 +113,24 @@ class LitNet(pl.LightningModule):
         label_batch = batch[1]
         out = self.net(x_batch)
         loss = F.cross_entropy(out, label_batch)
-        
-        """
-        accuracy, precision, recall, specificity, f1 = compute_metrics(out, label_batch)
 
-        test_acc  = accuracy.mean()
-        test_prec = precision.mean()
-        test_rec  = recall.mean()
-        test_spec = specificity.mean()
-        test_f1   = f1.mean()
-        print("Test accuracy: ", test_acc)
-        print("Test precision: ", test_prec)
-        print("Test recall: ", test_rec)
-        print("Test specificity: ", test_spec)
-        print("Test f1: ", test_f1)
-        print("\n")
+        #Estimation of model accuracy
+        out_argmax = out.argmax(dim=1)
+        label_argmax = label_batch.argmax(dim=1)
+
+        self.log("test_loss", loss.item(), prog_bar=True,on_step=False,on_epoch=True)
+        self.log("test_acc", self.accuracy(out_argmax, label_argmax), prog_bar=True,on_step=False,on_epoch=True)
+        self.log("test_f1_score",self.f1_score(out_argmax, label_argmax), prog_bar=True,on_step=False,on_epoch=True)
+        self.confusion_matrix.update(out_argmax, label_argmax)
+
+    def on_test_epoch_end(self):
+
+        print("On test epoch end dovresti salvare sta confusion matrix da qualche parte")
+        print("computing confusion matrix")
+        cm = self.confusion_matrix.compute()
+        print(cm)
+        self.confusion_matrix.reset()
        
-        self.log("test_loss", loss.item(), prog_bar=True)
-        self.log("test_acc", test_acc, prog_bar=True)
-        self.log("test_prec", test_prec, prog_bar=True)
-        self.log("test_rec", test_rec, prog_bar=True)
-        self.log("test_spec", test_spec, prog_bar=True)
-        self.log("test_f1", test_f1, prog_bar=True)
-        
-        test_acc_usual = np.sum(np.argmax(label_batch.detach().cpu().numpy(), axis=1) == np.argmax(out.detach().cpu().numpy(), axis=1)) / len(label_batch)
-
-        #self.log("test_loss", loss.item(), prog_bar=True)
-        self.log("test_acc", test_acc_usual, prog_bar=True)
-        """
     def configure_optimizers(self):
 
         return self.optimizer
