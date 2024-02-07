@@ -8,7 +8,8 @@ from torch.optim import Adam
 import pytorch_lightning as pl
 
 from mgr.utils_mgr import compute_metrics
-
+#from sklearn.metrics import confusion_matrix, f1_score
+from torchmetrics.classification import MulticlassConfusionMatrix, MulticlassF1Score
 # Define a general LightningModule (nn.Module subclass)
 # A LightningModule defines a full system (ie: a GAN, autoencoder, BERT or a simple Image Classifier).
 class LitNet(pl.LightningModule):
@@ -21,10 +22,32 @@ class LitNet(pl.LightningModule):
         print('Network initialized')
         
         self.net = model_net
+
+        self.confusion_matrix = MulticlassConfusionMatrix(num_classes=8)
+        self.f1_score = MulticlassF1Score(num_classes=8, average='macro')
         #self.val_loss = []
         #self.train_loss = []
-        self.best_val = np.inf
-        
+        #self.best_val = np.inf
+        """
+        Credo abbia più senso salvare una CM, piuttosto che una lista di predictions e true label, per poi calcolare cm solo alla fine
+        """
+        # Initialize confusion matrix
+        # The confusion matrix is a square matrix with dimensions equal to the number of classes
+        # The confusion matrix is initialized as an empty array.
+        # The confusion matrix is updated at each training step.
+        # The confusion matrix is a sum of all the confusion matrices of the batches.
+        # number of genres is computed as the number of output features of the last layer of the network [-1] and assuming that the
+        # last layer is a Linear layer [-2] ([-1][-1] is the softmax layer)
+        number_of_genres = list(self.net.children())[-1][-2].out_features
+        """
+        It is necessary to initialize the confusion matrix with the appropriate dimensions.
+        Otherwise if the first batch has a label that is not present in the first batch, the confusion matrix will have the wrong dimensions.
+        """
+        #self.confusion_matrix =  np.empty((number_of_genres, number_of_genres))
+        # Initialize f1 score as 0
+        # f1 score is 1 when there are no false positives and false negatives
+        # f1 score is 0 when there are no true positives and true negatives (all predictions are wrong)
+       # self.f1_score = 0    
 
     # If no configurations regarding the optimizer are specified, use the default ones
         try:
@@ -41,41 +64,37 @@ class LitNet(pl.LightningModule):
     # Training_step defines the training loop. 
     def training_step(self, batch, batch_idx=None):
         # training_step defines the train loop. It is independent of forward
-        x_batch = batch[0]
+        x_batch     = batch[0]
         label_batch = batch[1]
-        out = self.net(x_batch)
-        loss = F.cross_entropy(out, label_batch) # Diego nota: aggiungere weights in base a distribuzione classi dataset?
-        #self.train_loss.append(loss.item())
+        out         = self.net(x_batch)
+        loss        = F.cross_entropy(out, label_batch) 
 
         
-        #Evaluation of metrics
-        # Accuracy is computed with explicit computation of True Positive and True Negative.
-        # Should be equal to accuract computed as val_acc = np.sum(np.argmax(label_batch.detach().cpu().numpy(), axis=1) == np.argmax(out.detach().cpu().numpy(), axis=1)) / len(label_batch)
-
-        accuracy, precision, recall, specificity, f1 = compute_metrics(out, label_batch)
-
-        train_acc  = accuracy.mean()
-        train_prec = precision.mean()
-        train_rec  = recall.mean()
-        train_spec = specificity.mean()
-        train_f1   = f1.mean()
-
-        print("Train accuracy: ", train_acc)
-        print("Train precision: ", train_prec)
-        print("Train recall: ", train_rec)
-        print("Train specificity: ", train_spec)
-        print("Train f1: ", train_f1)
-        print("\n")
-
-        self.log("train_loss", loss.item(), prog_bar=True)
-        self.log("train_acc", train_acc, prog_bar=True)
-        self.log("train_prec", train_prec, prog_bar=True)
-        self.log("train_rec", train_rec, prog_bar=True)
-        self.log("train_spec", train_spec, prog_bar=True)
-        self.log("train_f1", train_f1, prog_bar=True)
-
-
+        #Estimation of model accuracy
+        self.confusion_matrix.update(out.argmax(dim=1), label_batch.argmax(dim=1))
+        self.f1_score.update(out.argmax(dim=1), label_batch.argmax(dim=1))
+       
         return loss
+    
+    def on_train_epoch_end(self):
+        print("On train epoch end dovresti salvare sta confusion matrix da qualche parte")
+
+        print("computing confusion matrix")
+        cm = self.confusion_matrix.compute()
+        print(cm)
+       
+
+        print("computing f1 score")
+        self.log("f1_score",self.f1_score.compute())
+       # print(self.f1_score.c)
+        
+        print("resetting confusion matrix")
+        self.confusion_matrix.reset()
+        print("resetting f1 score")
+        self.f1_score.reset()
+
+
+        print(self.f1_score)
 
     def validation_step(self, batch, batch_idx=None):
         # validation_step defines the validation loop. It is independent of forward
@@ -99,7 +118,7 @@ class LitNet(pl.LightningModule):
          #Evaluation of metrics
         # Accuracy is computed with explicit computation of True Positive and True Negative.
         # Should be equal to accuract computed as val_acc = np.sum(np.argmax(label_batch.detach().cpu().numpy(), axis=1) == np.argmax(out.detach().cpu().numpy(), axis=1)) / len(label_batch)
-
+        """
         accuracy, precision, recall, specificity, f1 = compute_metrics(out, label_batch)
 
         val_acc  = accuracy.mean()
@@ -127,7 +146,7 @@ class LitNet(pl.LightningModule):
         #self.val_loss.append(loss.item())
         #self.log("val_loss", loss.item(), prog_bar=True)
         self.log("val_acc_usual", val_acc_usual, prog_bar=True)
-
+        """
 
     def test_step(self, batch, batch_idx):
         # this is the test loop
@@ -136,6 +155,7 @@ class LitNet(pl.LightningModule):
         out = self.net(x_batch)
         loss = F.cross_entropy(out, label_batch)
         
+        """
         accuracy, precision, recall, specificity, f1 = compute_metrics(out, label_batch)
 
         test_acc  = accuracy.mean()
@@ -161,7 +181,7 @@ class LitNet(pl.LightningModule):
 
         #self.log("test_loss", loss.item(), prog_bar=True)
         self.log("test_acc", test_acc_usual, prog_bar=True)
-
+        """
     def configure_optimizers(self):
 
         return self.optimizer
