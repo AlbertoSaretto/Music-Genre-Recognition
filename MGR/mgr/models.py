@@ -1,15 +1,11 @@
-import numpy as np
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import Dataset, DataLoader
 from torch.optim import Adam
 import pytorch_lightning as pl
-
-from mgr.utils_mgr import compute_metrics
-#from sklearn.metrics import confusion_matrix, f1_score
 from torchmetrics.classification import MulticlassConfusionMatrix, MulticlassF1Score, MulticlassAccuracy
+
+
 # Define a general LightningModule (nn.Module subclass)
 # A LightningModule defines a full system (ie: a GAN, autoencoder, BERT or a simple Image Classifier).
 class LitNet(pl.LightningModule):
