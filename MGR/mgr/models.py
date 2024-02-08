@@ -17,15 +17,60 @@ class LitNet(pl.LightningModule):
     def __init__(self, model_net, lr=1, config=None):
        
         super().__init__()
-        # super(NNET2, self).__init__() ? 
         
         print('Network initialized')
         
         self.net = model_net
 
-        self.accuracy = MulticlassAccuracy(num_classes=8)
-        self.confusion_matrix = MulticlassConfusionMatrix(num_classes=8)
-        self.f1_score = MulticlassF1Score(num_classes=8, average='macro')
+        """
+        From the website of torchmetrics:https://lightning.ai/docs/torchmetrics/stable/pages/overview.html
+        Better to always try to reuse the same instance of a metric instead of initializing a new one.
+        Calling the reset method returns the metric to its initial state, and can therefore be used to reuse the same instance. 
+        However, we still highly recommend to use different instances from training, validation and testing.
+
+
+        ----
+
+        To save a metric:
+        EXAMPLE:
+
+        import torch
+        from torchmetrics.classification import MulticlassAccuracy
+
+        metric = MulticlassAccuracy(num_classes=5).to("cuda")
+        metric.persistent(True)
+        metric.update(torch.randint(5, (100,)).cuda(), torch.randint(5, (100,)).cuda())
+        torch.save(metric.state_dict(), "metric.pth")
+
+        metric2 = MulticlassAccuracy(num_classes=5).to("cpu")
+        metric2.load_state_dict(torch.load("metric.pth", map_location="cpu"))
+
+        # These will match, but be on different devices
+        print(metric.metric_state)
+        print(metric2.metric_state)
+
+        ----
+
+        Since I log all the metrics, the only one that I have to save manually is the confusion matrix.
+        
+        """
+        # Adding .persistent(True) only for the confusion matrix, since I log the others.
+        self.accuracy_train = MulticlassAccuracy(num_classes=8)
+        self.accuracy_val   = MulticlassAccuracy(num_classes=8)
+        self.accuracy_test  = MulticlassAccuracy(num_classes=8)
+
+        self.confusion_matrix_train = MulticlassConfusionMatrix(num_classes=8)
+        self.confusion_matrix_val   = MulticlassConfusionMatrix(num_classes=8)
+        self.confusion_matrix_test  = MulticlassConfusionMatrix(num_classes=8)
+
+        self.confusion_matrix_train.persistent(True)
+        self.confusion_matrix_val.persistent(True)
+
+        self.f1_score_train = MulticlassF1Score(num_classes=8, average='macro')
+        self.f1_score_val   = MulticlassF1Score(num_classes=8, average='macro')
+        self.f1_score_test  = MulticlassF1Score(num_classes=8, average='macro')
+        
+
        
     # If no configurations regarding the optimizer are specified, use the default ones
         try:
@@ -60,19 +105,20 @@ class LitNet(pl.LightningModule):
         label_argmax = label_batch.argmax(dim=1)
 
         self.log("train_loss", loss.item(), prog_bar=True,on_step=False,on_epoch=True)
-        self.log("train_acc", self.accuracy(out_argmax, label_argmax), prog_bar=True,on_step=False,on_epoch=True)
-        self.log("train_f1_score",self.f1_score(out_argmax, label_argmax), prog_bar=True,on_step=False,on_epoch=True)
-        self.confusion_matrix.update(out_argmax, label_argmax)
+        self.log("train_acc", self.accuracy_train(out_argmax, label_argmax), prog_bar=True,on_step=False,on_epoch=True)
+        self.log("train_f1_score",self.f1_score_train(out_argmax, label_argmax), prog_bar=True,on_step=False,on_epoch=True)
+        self.confusion_matrix_train.update(out_argmax, label_argmax)
         
         return loss
     
     def on_train_epoch_end(self):
-
-        print("On train epoch end dovresti salvare sta confusion matrix da qualche parte")
+        # Save the confusion matrix
+        torch.save(self.confusion_matrix_train.state_dict(), "confusion_matrix_train.pth")
         print("computing confusion matrix")
-        cm = self.confusion_matrix.compute()
+        cm = self.confusion_matrix_train.compute()
         print(cm)
-        self.confusion_matrix.reset()
+        print("Resetting confusion matrix")
+        self.confusion_matrix_train.reset()
 
 
 
@@ -92,20 +138,21 @@ class LitNet(pl.LightningModule):
         label_argmax = label_batch.argmax(dim=1)
 
         self.log("val_loss", loss.item(), prog_bar=True,on_step=False,on_epoch=True)
-        self.log("val_acc", self.accuracy(out_argmax, label_argmax), prog_bar=True,on_step=False,on_epoch=True)
-        self.log("val_f1_score",self.f1_score(out_argmax, label_argmax), prog_bar=True,on_step=False,on_epoch=True)
-        self.confusion_matrix.update(out_argmax, label_argmax)
+        self.log("val_acc", self.accuracy_val(out_argmax, label_argmax), prog_bar=True,on_step=False,on_epoch=True)
+        self.log("val_f1_score",self.f1_score_val(out_argmax, label_argmax), prog_bar=True,on_step=False,on_epoch=True)
+        self.confusion_matrix_val.update(out_argmax, label_argmax)
 
 
     
     def on_validation_epoch_end(self):
-
-        print("On validation epoch end dovresti salvare sta confusion matrix da qualche parte")
+        
+        # Save the confusion matrix
+        torch.save(self.confusion_matrix_val.state_dict(), "confusion_matrix_val.pth")
         print("computing confusion matrix")
-        cm = self.confusion_matrix.compute()
+        cm = self.confusion_matrix_val.compute()
         print(cm)
-        self.confusion_matrix.reset()
-
+        print("Resetting confusion matrix")
+        self.confusion_matrix_val.reset()
 
     def test_step(self, batch, batch_idx):
         # this is the test loop
@@ -119,17 +166,20 @@ class LitNet(pl.LightningModule):
         label_argmax = label_batch.argmax(dim=1)
 
         self.log("test_loss", loss.item(), prog_bar=True,on_step=False,on_epoch=True)
-        self.log("test_acc", self.accuracy(out_argmax, label_argmax), prog_bar=True,on_step=False,on_epoch=True)
-        self.log("test_f1_score",self.f1_score(out_argmax, label_argmax), prog_bar=True,on_step=False,on_epoch=True)
-        self.confusion_matrix.update(out_argmax, label_argmax)
+        self.log("test_acc", self.accuracy_test(out_argmax, label_argmax), prog_bar=True,on_step=False,on_epoch=True)
+        self.log("test_f1_score",self.f1_score_test(out_argmax, label_argmax), prog_bar=True,on_step=False,on_epoch=True)
+        self.confusion_matrix_test.update(out_argmax, label_argmax)
 
     def on_test_epoch_end(self):
 
-        print("On test epoch end dovresti salvare sta confusion matrix da qualche parte")
+        # Save the confusion matrix
+        torch.save(self.confusion_matrix_test.state_dict(), "confusion_matrix_test.pth")
         print("computing confusion matrix")
-        cm = self.confusion_matrix.compute()
+        cm = self.confusion_matrix_test.compute()
         print(cm)
-        self.confusion_matrix.reset()
+        print("Resetting confusion matrix")
+        self.confusion_matrix_test.reset()
+
        
     def configure_optimizers(self):
 
