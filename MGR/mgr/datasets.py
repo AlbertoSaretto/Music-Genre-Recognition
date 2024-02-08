@@ -10,7 +10,7 @@ from mgr.utils_mgr import getAudio
 
 class DataAudio(Dataset):
 
-    def __init__(self, df, transform = None, type = "1D"):
+    def __init__(self, df, transform = None, net_type = "1D"):
         
         # Get track index
         self.track_ids = df['index'].values
@@ -22,7 +22,7 @@ class DataAudio(Dataset):
         self.transform = transform
 
         #Select type of input
-        self.type = type
+        self.type = net_type
 
     def __len__(self):
 
