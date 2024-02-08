@@ -4,10 +4,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
-from torch.optim import Adadelta
+from torch.optim import Adam
 import pytorch_lightning as pl
 
-
+from mgr.utils_mgr import compute_metrics
+#from sklearn.metrics import confusion_matrix, f1_score
+from torchmetrics.classification import MulticlassConfusionMatrix, MulticlassF1Score, MulticlassAccuracy
 # Define a general LightningModule (nn.Module subclass)
 # A LightningModule defines a full system (ie: a GAN, autoencoder, BERT or a simple Image Classifier).
 class LitNet(pl.LightningModule):
@@ -15,23 +17,68 @@ class LitNet(pl.LightningModule):
     def __init__(self, model_net, lr=1, config=None):
        
         super().__init__()
-        # super(NNET2, self).__init__() ? 
         
         print('Network initialized')
         
         self.net = model_net
-        self.val_loss = []
-        self.train_loss = []
-        self.best_val = np.inf
+
+        """
+        From the website of torchmetrics:https://lightning.ai/docs/torchmetrics/stable/pages/overview.html
+        Better to always try to reuse the same instance of a metric instead of initializing a new one.
+        Calling the reset method returns the metric to its initial state, and can therefore be used to reuse the same instance. 
+        However, we still highly recommend to use different instances from training, validation and testing.
+
+
+        ----
+
+        To save a metric:
+        EXAMPLE:
+
+        import torch
+        from torchmetrics.classification import MulticlassAccuracy
+
+        metric = MulticlassAccuracy(num_classes=5).to("cuda")
+        metric.persistent(True)
+        metric.update(torch.randint(5, (100,)).cuda(), torch.randint(5, (100,)).cuda())
+        torch.save(metric.state_dict(), "metric.pth")
+
+        metric2 = MulticlassAccuracy(num_classes=5).to("cpu")
+        metric2.load_state_dict(torch.load("metric.pth", map_location="cpu"))
+
+        # These will match, but be on different devices
+        print(metric.metric_state)
+        print(metric2.metric_state)
+
+        ----
+
+        Since I log all the metrics, the only one that I have to save manually is the confusion matrix.
+        
+        """
+        # Adding .persistent(True) only for the confusion matrix, since I log the others.
+        self.accuracy_train = MulticlassAccuracy(num_classes=8)
+        self.accuracy_val   = MulticlassAccuracy(num_classes=8)
+        self.accuracy_test  = MulticlassAccuracy(num_classes=8)
+
+        self.confusion_matrix_train = MulticlassConfusionMatrix(num_classes=8)
+        self.confusion_matrix_val   = MulticlassConfusionMatrix(num_classes=8)
+        self.confusion_matrix_test  = MulticlassConfusionMatrix(num_classes=8)
+
+        self.confusion_matrix_train.persistent(True)
+        self.confusion_matrix_val.persistent(True)
+
+        self.f1_score_train = MulticlassF1Score(num_classes=8, average='macro')
+        self.f1_score_val   = MulticlassF1Score(num_classes=8, average='macro')
+        self.f1_score_test  = MulticlassF1Score(num_classes=8, average='macro')
         
 
+       
     # If no configurations regarding the optimizer are specified, use the default ones
         try:
-            self.optimizer = Adadelta(self.net.parameters(),
+            self.optimizer = Adam(self.net.parameters(),
                                        lr=config["lr"],rho=config["rho"], eps=config["eps"], weight_decay=config["weight_decay"])
         except:
                 print("Using default optimizer parameters")
-                self.optimizer = Adadelta(self.net.parameters(), lr = lr)
+                self.optimizer = Adam(self.net.parameters(), lr = lr)
 
 
     def forward(self,x):
@@ -40,38 +87,72 @@ class LitNet(pl.LightningModule):
     # Training_step defines the training loop. 
     def training_step(self, batch, batch_idx=None):
         # training_step defines the train loop. It is independent of forward
-        x_batch = batch[0]
+        x_batch     = batch[0]
         label_batch = batch[1]
-        out = self.net(x_batch)
-        loss = F.cross_entropy(out, label_batch) # Diego nota: aggiungere weights in base a distribuzione classi dataset?
-        self.train_loss.append(loss.item())
+        out         = self.net(x_batch)
+        loss        = F.cross_entropy(out, label_batch) 
+
+        """
+        To see how to use the metrics, check the following link:
+        https://lightning.ai/docs/torchmetrics/stable/pages/lightning.html
+
+        Trying not to mix self.log with .update and .compute
+
+        """
+        
+        #Estimation of model accuracy
+        out_argmax = out.argmax(dim=1)
+        label_argmax = label_batch.argmax(dim=1)
+
+        self.log("train_loss", loss.item(), prog_bar=True,on_step=False,on_epoch=True)
+        self.log("train_acc", self.accuracy_train(out_argmax, label_argmax), prog_bar=True,on_step=False,on_epoch=True)
+        self.log("train_f1_score",self.f1_score_train(out_argmax, label_argmax), prog_bar=True,on_step=False,on_epoch=True)
+        self.confusion_matrix_train.update(out_argmax, label_argmax)
+        
         return loss
+    
+    def on_train_epoch_end(self):
+        # Save the confusion matrix
+        torch.save(self.confusion_matrix_train.state_dict(), "confusion_matrix_train.pth")
+        print("computing confusion matrix")
+        cm = self.confusion_matrix_train.compute()
+        print(cm)
+        print("Resetting confusion matrix")
+        self.confusion_matrix_train.reset()
+
+
 
     def validation_step(self, batch, batch_idx=None):
         # validation_step defines the validation loop. It is independent of forward
         # When the validation_step() is called,
         # the model has been put in eval mode and PyTorch gradients have been disabled. 
         # At the end of validation, the model goes back to training mode and gradients are enabled.
-        x_batch = batch[0]
+        x_batch     = batch[0]
         label_batch = batch[1]
 
-        out = self.net(x_batch)
+        out  = self.net(x_batch)
         loss = F.cross_entropy(out, label_batch)
 
         #Estimation of model accuracy
-        """
-        Validation accuracy is computed as follows.
-        label_batch are the true labels. They are one-hot encoded (eg [1,0,0,0,0,0,0,0]). 
-        out are the predicted labels. They are a 8-dim vector of probabilities.
-        argmax checks what is the index with the highest probability. Each index is related to a Music Genre.
-        If the indexes are equal the classification is correct.
-        """
-        val_acc = np.sum(np.argmax(label_batch.detach().cpu().numpy(), axis=1) == np.argmax(out.detach().cpu().numpy(), axis=1)) / len(label_batch)
+        out_argmax = out.argmax(dim=1)
+        label_argmax = label_batch.argmax(dim=1)
 
-        self.val_loss.append(loss.item())
-        self.log("val_loss", loss.item(), prog_bar=True)
-        self.log("val_acc", val_acc, prog_bar=True)
+        self.log("val_loss", loss.item(), prog_bar=True,on_step=False,on_epoch=True)
+        self.log("val_acc", self.accuracy_val(out_argmax, label_argmax), prog_bar=True,on_step=False,on_epoch=True)
+        self.log("val_f1_score",self.f1_score_val(out_argmax, label_argmax), prog_bar=True,on_step=False,on_epoch=True)
+        self.confusion_matrix_val.update(out_argmax, label_argmax)
 
+
+    
+    def on_validation_epoch_end(self):
+        
+        # Save the confusion matrix
+        torch.save(self.confusion_matrix_val.state_dict(), "confusion_matrix_val.pth")
+        print("computing confusion matrix")
+        cm = self.confusion_matrix_val.compute()
+        print(cm)
+        print("Resetting confusion matrix")
+        self.confusion_matrix_val.reset()
 
     def test_step(self, batch, batch_idx):
         # this is the test loop
@@ -80,11 +161,26 @@ class LitNet(pl.LightningModule):
         out = self.net(x_batch)
         loss = F.cross_entropy(out, label_batch)
 
-        test_acc = np.sum(np.argmax(label_batch.detach().cpu().numpy(), axis=1) == np.argmax(out.detach().cpu().numpy(), axis=1)) / len(label_batch)
+        #Estimation of model accuracy
+        out_argmax = out.argmax(dim=1)
+        label_argmax = label_batch.argmax(dim=1)
 
-        self.log("test_loss", loss.item(), prog_bar=True)
-        self.log("test_acc", test_acc, prog_bar=True)
+        self.log("test_loss", loss.item(), prog_bar=True,on_step=False,on_epoch=True)
+        self.log("test_acc", self.accuracy_test(out_argmax, label_argmax), prog_bar=True,on_step=False,on_epoch=True)
+        self.log("test_f1_score",self.f1_score_test(out_argmax, label_argmax), prog_bar=True,on_step=False,on_epoch=True)
+        self.confusion_matrix_test.update(out_argmax, label_argmax)
 
+    def on_test_epoch_end(self):
+
+        # Save the confusion matrix
+        torch.save(self.confusion_matrix_test.state_dict(), "confusion_matrix_test.pth")
+        print("computing confusion matrix")
+        cm = self.confusion_matrix_test.compute()
+        print(cm)
+        print("Resetting confusion matrix")
+        self.confusion_matrix_test.reset()
+
+       
     def configure_optimizers(self):
 
         return self.optimizer

@@ -310,3 +310,51 @@ def create_dataloaders(PATH_DATA="../data/",transforms=None, type='1D',batch_siz
     test_dataloader  = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
 
     return train_dataloader, val_dataloader, test_dataloader
+
+"""
+compute_CM_terms and compute_metrics are used to compute the confusion matrix and the metrics
+
+"""
+
+def compute_CM_terms(out_net, label_batch):
+    import torch
+    import torch.nn.functional as F
+    from sklearn.metrics import confusion_matrix, accuracy_score, precision_score, recall_score, f1_score
+
+    '''
+
+    TO DO: CHECK IF SKLEARN METRICS ARE THE SAME
+
+    Function to compute terms for the evaluation of confusion matrix and different metrics:
+
+    TP: True Positive, the cases in which we predicted YES and the actual output was also YES.
+    FP: False Positive, the cases in which we predicted YES and the actual output was NO.
+    TN: True Negative, the cases in which we predicted NO and the actual output was also NO.
+    FN: False Negative, the cases in which we predicted NO and the actual output was YES.
+    '''
+
+    out_pred = out_net.argmax(dim=1)
+
+
+    out_pred_bool = F.one_hot(out_pred, num_classes=8).bool()
+    
+    # logical_and is element wise 'and', zeros element are always false
+    # 0 == 0 -> False
+    TP = torch.logical_and(out_pred_bool, label_batch).sum(dim=0)
+    FP = torch.logical_and(out_pred_bool, ~label_batch).sum(dim=0)
+    TN = torch.logical_and(~out_pred_bool, ~label_batch).sum(dim=0)
+    FN = torch.logical_and(~out_pred_bool, label_batch).sum(dim=0)
+    
+    
+    return TP, FP, TN, FN
+
+def compute_metrics(out_net, label_batch):
+    TP, FP, TN, FN = compute_CM_terms(out_net, label_batch)
+
+    # Compute metrics
+    accuracy = (TP + TN) / (TP + FP + TN + FN)
+    precision = TP / (TP + FP)
+    recall = TP / (TP + FN)
+    f1 = 2 * (precision * recall) / (precision + recall)
+
+    return accuracy, precision, recall, f1
