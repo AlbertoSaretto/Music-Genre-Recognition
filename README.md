@@ -1,4 +1,28 @@
-# MGR 
+# MGR
+
+## Update NUOVO TESTAMENTO - 09/02/2024
+Cose:
+
+* no Adagrad ma Adam ovunque: fatto. Sarà da fare esperiemnti con SGD with momentum
+* aggiunta confusion matrix e f1 score. Studiare se altre metriche sono necessarie. In torchmetrics ce ne sono a bizzeffe, anche specifiche per audio
+* iniziato studio trasformazioni. Vedi cartella apposita. **check on MEL Spec** sono tutti sballati. Decidere che linea seguire: io propongo training senza data augmentation e poi esperimenti con.
+* Nello studio trasformazioni trovi anche plot diagnostici da eventualmente implementare
+
+Altre cose da fare che mi sono segnato dopo l'incontro:
+* capire normalizzazione. Vedi cosa fanno su `usage.ipynb`
+* test set should be fixed: no random windows
+
+Una volta fatte queste dovremmo essere pronti per partire con i primi esperimenti.
+
+Altre cose:
+* MixNet è da sistemare
+* ResNet with finetuning could help
+* LSTM layer could help
+* Always check training loss plots to understand if model is underparametrized / overfit etc
+
+----
+
+  
 ## WHERE WE ARE // WHERE ARE WE GOING
 
 **Metrics to be added. General hyperparams tuning is needed. No weights analysis done (farla alla fine)**
