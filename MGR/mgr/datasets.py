@@ -71,7 +71,12 @@ class DataAudio(Dataset):
         
 
         if self.transform:
-            x = self.transform(x)
+            
+            if self.type=="1D":
+                 # Audiogmentations library requires to specify the sample rate
+                 x = self.transform(x,44100) # Using 44100, I should make this more robust using sr from previous function
+            else:
+                x = self.transform(x)
            
         return x,y
 
