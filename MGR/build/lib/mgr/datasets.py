@@ -10,7 +10,7 @@ from mgr.utils_mgr import getAudio
 
 class DataAudio(Dataset):
 
-    def __init__(self, df, transform = None, type = "1D"):
+    def __init__(self, df, transform = None, net_type = "1D"):
         
         # Get track index
         self.track_ids = df['index'].values
@@ -22,7 +22,7 @@ class DataAudio(Dataset):
         self.transform = transform
 
         #Select type of input
-        self.type = type
+        self.type = net_type
 
     def __len__(self):
 
@@ -71,7 +71,12 @@ class DataAudio(Dataset):
         
 
         if self.transform:
-            x = self.transform(x)
+            
+            if self.type=="1D":
+                 # Audiogmentations library requires to specify the sample rate
+                 x = self.transform(x,44100) # Using 44100, I should make this more robust using sr from previous function
+            else:
+                x = self.transform(x)
            
         return x,y
 

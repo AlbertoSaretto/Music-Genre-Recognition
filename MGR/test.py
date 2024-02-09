@@ -30,7 +30,7 @@ def main(max_epochs,model):
     #model.load_state_dict(checkpoint['state_dict'])
     
 
-    train_dataloader, val_dataloader, test_dataloader = create_dataloaders(PATH_DATA="/home/diego/Music-Genre-Recognition/data/",num_workers=8)
+    train_dataloader, val_dataloader, test_dataloader = create_dataloaders(PATH_DATA="/home/diego/Music-Genre-Recognition/data/",num_workers=8,batch_size=64)
     trainer.fit(model, train_dataloader, val_dataloader)
     trainer.test(model=model,dataloaders=test_dataloader,verbose=True)
 

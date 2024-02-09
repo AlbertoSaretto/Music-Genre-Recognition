@@ -295,15 +295,15 @@ def display_mel(idx, n_samples, n_fft, n_mels, time_bin, sr_i=None):
 
     return 0
 
-def create_dataloaders(PATH_DATA="../data/",transforms=None, type='1D',batch_size=64,num_workers=os.cpu_count()):
+def create_dataloaders(PATH_DATA="../data/",transforms=None,batch_size=64,num_workers=os.cpu_count(),net_type='1D'):
     from mgr.datasets import DataAudio
     from torch.utils.data import DataLoader
     
     train_set, val_set, test_set = import_and_preprocess_data(PATH_DATA)
 
-    train_dataset  = DataAudio(train_set, transform = transforms, type=type)
-    val_dataset    = DataAudio(val_set, transform = transforms, type=type)
-    test_dataset   = DataAudio(test_set, transform = transforms, type=type)
+    train_dataset  = DataAudio(train_set, transform = transforms, net_type=net_type)
+    val_dataset    = DataAudio(val_set, transform = transforms, net_type=net_type)
+    test_dataset   = DataAudio(test_set, transform = transforms, net_type=net_type)
 
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
     val_dataloader   = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
@@ -319,8 +319,7 @@ compute_CM_terms and compute_metrics are used to compute the confusion matrix an
 def compute_CM_terms(out_net, label_batch):
     import torch
     import torch.nn.functional as F
-    from sklearn.metrics import confusion_matrix, accuracy_score, precision_score, recall_score, f1_score
-
+    
     '''
 
     TO DO: CHECK IF SKLEARN METRICS ARE THE SAME
@@ -334,8 +333,6 @@ def compute_CM_terms(out_net, label_batch):
     '''
 
     out_pred = out_net.argmax(dim=1)
-
-
     out_pred_bool = F.one_hot(out_pred, num_classes=8).bool()
     
     # logical_and is element wise 'and', zeros element are always false
@@ -358,3 +355,39 @@ def compute_metrics(out_net, label_batch):
     f1 = 2 * (precision * recall) / (precision + recall)
 
     return accuracy, precision, recall, f1
+
+
+#Function for main training of the network
+
+def main_train(model_net, max_epochs=1, optimizer=None,  lr=1, 
+               config=None, transforms=None, net_type='1D',batch_size=64,num_workers=os.cpu_count()):
+    
+    import pytorch_lightning as pl
+    from mgr.models import LitNet
+    import torch
+
+    pl.seed_everything(0)
+
+    if optimizer is None:
+        optimizer = torch.optim.Adam(model_net.parameters(), lr=lr)
+      
+    # Define the EarlyStopping callback
+    early_stop_callback = pl.callbacks.EarlyStopping(
+        monitor='val_loss',  # Monitor the validation loss
+        min_delta=0.01,     # Minimum change in the monitored metric
+        patience=10,          # Number of epochs with no improvement after which training will be stopped
+        verbose=True,
+        mode='min'           # Mode: 'min' if you want to minimize the monitored quantity (e.g., loss)
+    )
+
+    trainer = pl.Trainer(max_epochs=max_epochs, check_val_every_n_epoch=5, log_every_n_steps=1, 
+                         deterministic=True,callbacks=[early_stop_callback], ) # profiler="simple" remember to add this and make fun plots
+    
+    model = LitNet(model_net, lr=lr, config=config)
+
+    train_dataloader, val_dataloader, test_dataloader = create_dataloaders(transforms=transforms, net_type=net_type,batch_size=batch_size,num_workers=num_workers)
+
+    trainer.fit(model, train_dataloader, val_dataloader)
+    trainer.test(model=model,dataloaders=test_dataloader,verbose=True)
+
+    return model
