@@ -303,7 +303,7 @@ def create_dataloaders(PATH_DATA="../data/",transforms=None,batch_size=64,num_wo
 
     train_dataset  = DataAudio(train_set, transform = transforms, net_type=net_type)
     val_dataset    = DataAudio(val_set, transform = transforms, net_type=net_type)
-    test_dataset   = DataAudio(test_set, transform = transforms, net_type=net_type)
+    test_dataset   = DataAudio(test_set, transform = transforms, net_type=net_type, test = True)
 
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
     val_dataloader   = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
