@@ -10,7 +10,7 @@ Cose:
 
 Altre cose da fare che mi sono segnato dopo l'incontro:
 * capire normalizzazione. Vedi cosa fanno su `usage.ipynb`
-* test set should be fixed: no random windows
+* test set should be fixed: no random windows. Fatto.
 
 Una volta fatte queste dovremmo essere pronti per partire con i primi esperimenti.
 
