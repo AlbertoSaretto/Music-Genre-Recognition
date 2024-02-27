@@ -10,7 +10,7 @@ from mgr.utils_mgr import getAudio
 
 class DataAudio(Dataset):
 
-    def __init__(self, df, transform = None, net_type = "1D", test = False):
+    def __init__(self, df, transform = None, PATH_DATA="data/",  net_type = "1D", test = False):
         
         # Get track index
         self.track_ids = df['index'].values
@@ -26,6 +26,9 @@ class DataAudio(Dataset):
 
         #Test
         self.test = test
+
+        #Path to data
+        self.path = PATH_DATA
 
     def __len__(self):
 
@@ -43,7 +46,7 @@ class DataAudio(Dataset):
         
         with warnings.catch_warnings():
             warnings.simplefilter('ignore')
-            audio, sr = getAudio(self.track_ids[i])
+            audio, sr = getAudio(self.track_ids[i], self.path)
 
             #If test select clip window starting at half of the audio
             if(self.test):

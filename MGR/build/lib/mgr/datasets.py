@@ -10,7 +10,7 @@ from mgr.utils_mgr import getAudio
 
 class DataAudio(Dataset):
 
-    def __init__(self, df, transform = None, net_type = "1D"):
+    def __init__(self, df, transform = None, net_type = "1D", test = False):
         
         # Get track index
         self.track_ids = df['index'].values
@@ -23,6 +23,9 @@ class DataAudio(Dataset):
 
         #Select type of input
         self.type = net_type
+
+        #Test
+        self.test = test
 
     def __len__(self):
 
@@ -42,10 +45,16 @@ class DataAudio(Dataset):
             warnings.simplefilter('ignore')
             audio, sr = getAudio(self.track_ids[i])
 
-            #Select random clip from audio
-            start = np.random.randint(0, (audio.shape[0]-2**18))
-            audio = audio[start:start+2**18]
-            
+            #If test select clip window starting at half of the audio
+            if(self.test):
+                start = audio.shape[0]/2
+                audio = audio[start:start+2**18]
+
+            else:
+                #Select random clip from audio
+                start = np.random.randint(0, (audio.shape[0]-2**18))
+                audio = audio[start:start+2**18]
+                
             if(self.type=="2D"):
                 #Get 2D spectrogram
                 stft = np.abs(librosa.stft(audio, n_fft=4096, hop_length=2048))
@@ -67,7 +76,7 @@ class DataAudio(Dataset):
         except:
             print("\nNot able to load track number ", self.track_ids[idx], " Loading next one\n")
             x = self.create_input(idx+1)
-            y = self.label[idx]
+            y = self.label[idx+1]
         
 
         if self.transform:
