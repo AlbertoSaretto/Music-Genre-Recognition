@@ -7,10 +7,14 @@ Cose:
 * aggiunta confusion matrix e f1 score. Studiare se altre metriche sono necessarie. In torchmetrics ce ne sono a bizzeffe, anche specifiche per audio
 * iniziato studio trasformazioni. Vedi cartella apposita. **check on MEL Spec** sono tutti sballati. Decidere che linea seguire: io propongo training senza data augmentation e poi esperimenti con.
 * Nello studio trasformazioni trovi anche plot diagnostici da eventualmente implementare
+* implementare utilizzo gpu.
+* Sistemare struttura 2D al nuovo formato dei mel.
+  
 
 Altre cose da fare che mi sono segnato dopo l'incontro:
-* capire normalizzazione. Vedi cosa fanno su `usage.ipynb`
-* test set should be fixed: no random windows. Fatto.
+* capire normalizzazione. Vedi cosa fanno su `usage.ipynb`. fatto, in genere viene aaplicata una standard scaler: (x-u)/s. implementare.
+* test set should be fixed: no random windows. fatto.
+  
 
 Una volta fatte queste dovremmo essere pronti per partire con i primi esperimenti.
 
