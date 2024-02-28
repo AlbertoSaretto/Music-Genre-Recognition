@@ -1,11 +1,24 @@
 from mgr.models import NNET1D, LitNet
 from mgr.utils_mgr import import_and_preprocess_data, create_dataloaders
 import pytorch_lightning as pl
+import torchvision.transforms.v2 as v2
+
+
+
 
 def main(max_epochs,model):
     pl.seed_everything(0)
 
-   
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    if device.type == 'cuda':
+        # release all unoccupied cached memory
+        torch.cuda.empty_cache()
+        # printo GPU info
+        device_count = torch.cuda.device_count()
+        current_device = torch.cuda.current_device()
+        device_name = torch.cuda.get_device_name(current_device)
+        print('{} {} GPU available'.format(str(device_count), str(device_name)))
+
       
     # Define the EarlyStopping callback
     early_stop_callback = pl.callbacks.EarlyStopping(
@@ -16,10 +29,18 @@ def main(max_epochs,model):
         mode='min'           # Mode: 'min' if you want to minimize the monitored quantity (e.g., loss)
     )
 
+    # Set the trainer's device to GPU if available
+    trainer = pl.Trainer(
+        max_epochs=max_epochs,
+        check_val_every_n_epoch=5,
+        log_every_n_steps=1,
+        deterministic=True,
+        callbacks=[early_stop_callback],
+        devices = -1,
+        accelerator='cuda' if torch.cuda.is_available() else 'cpu'
+    )
 
-    # I think that Trainer automatically takes last checkpoint.
-    trainer = pl.Trainer(max_epochs=max_epochs, check_val_every_n_epoch=5, log_every_n_steps=1, 
-                         deterministic=True,callbacks=[early_stop_callback], ) # profiler="simple" remember to add this and make fun plots
+    transforms = transforms.Compose([v2.ToTensor()])
     
     #hyperparameters = load_optuna()
     #model = LitNet(hyperparameters) 
@@ -30,7 +51,7 @@ def main(max_epochs,model):
     #model.load_state_dict(checkpoint['state_dict'])
     
 
-    train_dataloader, val_dataloader, test_dataloader = create_dataloaders(PATH_DATA="/home/diego/Music-Genre-Recognition/data/",num_workers=8,batch_size=64)
+    train_dataloader, val_dataloader, test_dataloader = create_dataloaders(PATH_DATA="/home/diego/Music-Genre-Recognition/data/", transforms=transforms,num_workers=8,batch_size=64)
     trainer.fit(model, train_dataloader, val_dataloader)
     trainer.test(model=model,dataloaders=test_dataloader,verbose=True)
 

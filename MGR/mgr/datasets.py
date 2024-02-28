@@ -6,6 +6,9 @@ import warnings
 import h5py
 import os
 from mgr.utils_mgr import getAudio
+from sklearn import preprocessing
+
+
 
 
 class DataAudio(Dataset):
@@ -46,11 +49,11 @@ class DataAudio(Dataset):
         
         with warnings.catch_warnings():
             warnings.simplefilter('ignore')
-            audio, sr = getAudio(self.track_ids[i], self.path)
+            audio, sr = getAudio(self.track_ids[i], PATH_DATA = self.path)
 
             #If test select clip window starting at half of the audio
             if(self.test):
-                start = audio.shape[0]/2
+                start = int(audio.shape[0]/2)
                 audio = audio[start:start+2**18]
 
             else:
@@ -60,10 +63,10 @@ class DataAudio(Dataset):
                 
             if(self.type=="2D"):
                 #Get 2D spectrogram
-                stft = np.abs(librosa.stft(audio, n_fft=4096, hop_length=2048))
+                stft = np.abs(librosa.stft(audio, n_fft=1024, hop_length=512))
                 
-                mel = librosa.feature.melspectrogram(sr=sr, S=stft**2, n_mels=513)[:,:128]
-                mel = librosa.power_to_db(mel).T
+                mel = librosa.feature.melspectrogram(sr=sr, S=stft**2, n_mels=128)[:,:512]
+                mel = librosa.power_to_db(mel).T         #One possibility is to put here ref=np.max to normalize the data
                 return mel
             
             return audio[np.newaxis,:]
@@ -81,6 +84,9 @@ class DataAudio(Dataset):
             x = self.create_input(idx+1)
             y = self.label[idx+1]
         
+        #Scale data
+        scaler = preprocessing.StandardScaler(copy=False)
+        x = scaler.fit_transform(x)
 
         if self.transform:
             

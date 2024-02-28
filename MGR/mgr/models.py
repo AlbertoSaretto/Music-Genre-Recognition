@@ -266,7 +266,7 @@ class NNET2D(nn.Module):
         
         
         self.c1 = nn.Sequential(
-            nn.Conv2d(in_channels=1, out_channels=256,kernel_size=(4,513)),
+            nn.Conv2d(in_channels=1, out_channels=256,kernel_size=(4,128)),
             nn.BatchNorm2d(256),
             nn.ReLU(),
             nn.Dropout2d(.2)
@@ -288,13 +288,16 @@ class NNET2D(nn.Module):
                 
 
         self.fc = nn.Sequential(
-            nn.Linear(512, 300),
+            nn.Linear(2048, 1024),
             nn.ReLU(),
             nn.Dropout(p=0.2),
-            nn.Linear(300, 150),
+            nn.Linear(1024, 256),
             nn.ReLU(),
             nn.Dropout(p=0.2),
-            nn.Linear(150, 8),
+            nn.Linear(256, 128),
+            nn.ReLU(),
+            nn.Dropout(p=0.2),
+            nn.Linear(128, 8),
             nn.Softmax(dim=1)
         )
 
@@ -302,7 +305,6 @@ class NNET2D(nn.Module):
 
 
     def forward(self,x):
-        
         c1 = self.c1(x) 
         c2 = self.c2(c1)
         c3 = self.c3(c2)
