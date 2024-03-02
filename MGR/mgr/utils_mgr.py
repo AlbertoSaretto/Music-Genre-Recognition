@@ -368,6 +368,18 @@ def main_train(model_net, max_epochs=1, optimizer=None,  lr=1,
 
     pl.seed_everything(0)
 
+    # Set the device to GPU if available
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    if device.type == 'cuda':
+        # release all unoccupied cached memory
+        torch.cuda.empty_cache()
+        # printo GPU info
+        device_count = torch.cuda.device_count()
+        current_device = torch.cuda.current_device()
+        device_name = torch.cuda.get_device_name(current_device)
+        print('{} {} GPU available'.format(str(device_count), str(device_name)))
+
+    # Define the optimizer
     if optimizer is None:
         optimizer = torch.optim.Adam(model_net.parameters(), lr=lr)
       
@@ -380,10 +392,28 @@ def main_train(model_net, max_epochs=1, optimizer=None,  lr=1,
         mode='min'           # Mode: 'min' if you want to minimize the monitored quantity (e.g., loss)
     )
 
-    trainer = pl.Trainer(max_epochs=max_epochs, check_val_every_n_epoch=5, log_every_n_steps=1, 
-                         deterministic=True,callbacks=[early_stop_callback], ) # profiler="simple" remember to add this and make fun plots
-    
+    # Set the trainer's device to GPU if available
+    trainer = pl.Trainer(
+        max_epochs=max_epochs,
+        check_val_every_n_epoch=1,
+        log_every_n_steps=1,
+        deterministic=True,
+        callbacks=[early_stop_callback],
+        devices = -1,
+        accelerator='cuda' if torch.cuda.is_available() else 'cpu'
+    )
+
+
     model = LitNet(model_net, lr=lr, config=config)
+
+
+    
+    # Load model weights from checkpoint
+    #CKPT_PATH = "./lightning_logs/version_16/checkpoints/epoch=19-step=2000.ckpt"
+    #checkpoint = torch.load(CKPT_PATH)
+    #model.load_state_dict(checkpoint['state_dict'])
+
+    
 
     train_dataloader, val_dataloader, test_dataloader = create_dataloaders(PATH_DATA=PATH_DATA, transforms=transforms, net_type=net_type,batch_size=batch_size,num_workers=num_workers)
 
