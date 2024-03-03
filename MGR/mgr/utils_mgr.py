@@ -359,8 +359,17 @@ def compute_metrics(out_net, label_batch):
 
 #Function for main training of the network
 
-def main_train(model_net, max_epochs=1, optimizer=None,  lr=1, 
-               config=None, PATH_DATA = "data/", transforms=None, net_type='1D',batch_size=64,num_workers=os.cpu_count()):
+def main_train(model_net, 
+               max_epochs=1, 
+               optimizer=None,
+               lr=1,
+               config=None,
+               PATH_DATA = "data/",
+               transforms=None,
+               net_type='1D',
+               batch_size=64,
+               num_workers=os.cpu_count(),
+               fast_dev_run=False):
     
     import pytorch_lightning as pl
     from mgr.models import LitNet
@@ -400,7 +409,8 @@ def main_train(model_net, max_epochs=1, optimizer=None,  lr=1,
         deterministic=True,
         callbacks=[early_stop_callback],
         devices = "auto",
-        accelerator='cuda' if torch.cuda.is_available() else 'cpu'
+        accelerator='cuda' if torch.cuda.is_available() else 'cpu',
+        fast_dev_run=fast_dev_run,
     )
 
 
@@ -420,6 +430,7 @@ def main_train(model_net, max_epochs=1, optimizer=None,  lr=1,
     trainer.fit(model, train_dataloader, val_dataloader)
     #trainer.test(model=model,dataloaders=test_dataloader,verbose=True)
 
+    """
     print("check if parameters are being updated")    
     # Check if parameters are being updated
     for name, param in model.named_parameters():
@@ -429,4 +440,6 @@ def main_train(model_net, max_epochs=1, optimizer=None,  lr=1,
             print(f"Parameter {name} is being updated: {param.grad.abs().sum() != 0}")
 
     print("\nfinished check")
+
+    """
     return model
