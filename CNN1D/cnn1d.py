@@ -77,6 +77,9 @@ class NNET1D_plain(nn.Module):
 
             nn.Linear(512, 128),
             nn.ReLU(inplace = True),
+
+            nn.Linear(128,128),
+            nn.ReLU(inplace = True),
             
             nn.Linear(128, 64),
             nn.ReLU(inplace = True),
@@ -124,28 +127,25 @@ class NNET1D_plain(nn.Module):
 
 if __name__ == "__main__":
 
-    main_train(max_epochs=1,
+    train_audio_transform = audio.Compose([
+        audio.AddGaussianNoise(min_amplitude=0.001, max_amplitude=0.015, p=0.5),
+        audio.TimeStretch(min_rate=0.8, max_rate=1.25, p=0.5),
+    ])
+   
+    """
+    ATTENZIONE: NORMALIZZAZIONE???
+   
+    """
+
+    main_train(max_epochs=5,
                 model_net = LitNet(NNET1D_plain()),
                 net_type='1D',
                 transforms=None,
                 PATH_DATA="../data/",
                 batch_size=32,
-                fast_dev_run=10,
+                fast_dev_run=False,
+                lr=0.001
                 )
-    
-    """
-    # 1. Benchmarking without transformations - "plainest" model
-    for batch_size in [32,64,128,256,512]:
-        print("batch_size: ", batch_size)
-        main_train(max_epochs=1,
-                model_net = LitNet(NNET1D_plain()),
-                net_type='1D',
-                transforms=None,
-                PATH_DATA="../data/",
-                batch_size=batch_size,
-                fast_dev_run=10,
-                )
-        print("-------------------------------------------------\n")
-    """
-
+        
+  
     
