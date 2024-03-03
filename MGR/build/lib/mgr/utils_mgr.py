@@ -15,9 +15,9 @@ import os
 import gc
 
 #Function to extract audio signal from .mp3 file
-def getAudio(idx, sr_i=None, AUDIO_DIR = '/home/diego/Music-Genre-Recognition/data/fma_small/'):
+def getAudio(idx, sr_i=None, PATH_DATA="data/"):
     #Get the audio file path
-    filename = utils.get_audio_path(AUDIO_DIR, idx)
+    filename = utils.get_audio_path(PATH_DATA+"fma_small/", idx)
 
     #Load the audio (sr = sampling rate, number of audio carries per second)
     x, sr = librosa.load(filename, sr=sr_i, mono=True)  #sr=None to consider original sampling rate
@@ -247,7 +247,7 @@ def mean_1D(dataset):
     return mean,std
 
 
-def import_and_preprocess_data(PATH_DATA="data/"):
+def import_and_preprocess_data(PATH_DATA="../data/"):
     # Load metadata and features.
     tracks = utils.load(PATH_DATA+'fma_metadata/tracks.csv')
 
@@ -272,9 +272,9 @@ def import_and_preprocess_data(PATH_DATA="data/"):
     return train_set, val_set, test_set
 
 
-def display_mel(idx, n_samples, n_fft, n_mels, time_bin, sr_i=None):
+def display_mel(idx, n_samples, n_fft, n_mels, time_bin, sr_i=None, PATH_DATA="data/"):
 
-    audio, sr = getAudio(idx, sr_i)
+    audio, sr = getAudio(idx, sr_i, PATH_DATA)
 
     #Select random clip from audio
     start = np.random.randint(0, (audio.shape[0]-n_samples))
@@ -295,15 +295,15 @@ def display_mel(idx, n_samples, n_fft, n_mels, time_bin, sr_i=None):
 
     return 0
 
-def create_dataloaders(PATH_DATA="../data/",transforms=None,batch_size=64,num_workers=os.cpu_count(),net_type='1D'):
+def create_dataloaders(PATH_DATA="data/",transforms=None,batch_size=64,num_workers=os.cpu_count(),net_type='1D'):
     from mgr.datasets import DataAudio
     from torch.utils.data import DataLoader
     
     train_set, val_set, test_set = import_and_preprocess_data(PATH_DATA)
 
-    train_dataset  = DataAudio(train_set, transform = transforms, net_type=net_type)
-    val_dataset    = DataAudio(val_set, transform = transforms, net_type=net_type)
-    test_dataset   = DataAudio(test_set, transform = transforms, net_type=net_type, test = True)
+    train_dataset  = DataAudio(train_set, transform = transforms, PATH_DATA=PATH_DATA, net_type=net_type)
+    val_dataset    = DataAudio(val_set, transform = transforms, PATH_DATA=PATH_DATA, net_type=net_type)
+    test_dataset   = DataAudio(test_set, transform = transforms, PATH_DATA=PATH_DATA, net_type=net_type, test = True)
 
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
     val_dataloader   = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
@@ -360,7 +360,7 @@ def compute_metrics(out_net, label_batch):
 #Function for main training of the network
 
 def main_train(model_net, max_epochs=1, optimizer=None,  lr=1, 
-               config=None, transforms=None, net_type='1D',batch_size=64,num_workers=os.cpu_count()):
+               config=None, PATH_DATA = "data/", transforms=None, net_type='1D',batch_size=64,num_workers=os.cpu_count()):
     
     import pytorch_lightning as pl
     from mgr.models import LitNet
@@ -368,6 +368,18 @@ def main_train(model_net, max_epochs=1, optimizer=None,  lr=1,
 
     pl.seed_everything(0)
 
+    # Set the device to GPU if available
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    if device.type == 'cuda':
+        # release all unoccupied cached memory
+        torch.cuda.empty_cache()
+        # printo GPU info
+        device_count = torch.cuda.device_count()
+        current_device = torch.cuda.current_device()
+        device_name = torch.cuda.get_device_name(current_device)
+        print('{} {} GPU available'.format(str(device_count), str(device_name)))
+
+    # Define the optimizer
     if optimizer is None:
         optimizer = torch.optim.Adam(model_net.parameters(), lr=lr)
       
@@ -380,14 +392,41 @@ def main_train(model_net, max_epochs=1, optimizer=None,  lr=1,
         mode='min'           # Mode: 'min' if you want to minimize the monitored quantity (e.g., loss)
     )
 
-    trainer = pl.Trainer(max_epochs=max_epochs, check_val_every_n_epoch=5, log_every_n_steps=1, 
-                         deterministic=True,callbacks=[early_stop_callback], ) # profiler="simple" remember to add this and make fun plots
-    
+    # Set the trainer's device to GPU if available
+    trainer = pl.Trainer(
+        max_epochs=max_epochs,
+        check_val_every_n_epoch=1,
+        log_every_n_steps=1,
+        deterministic=True,
+        callbacks=[early_stop_callback],
+        devices = "auto",
+        accelerator='cuda' if torch.cuda.is_available() else 'cpu'
+    )
+
+
     model = LitNet(model_net, lr=lr, config=config)
 
-    train_dataloader, val_dataloader, test_dataloader = create_dataloaders(transforms=transforms, net_type=net_type,batch_size=batch_size,num_workers=num_workers)
+
+    
+    # Load model weights from checkpoint
+    #CKPT_PATH = "./lightning_logs/version_16/checkpoints/epoch=19-step=2000.ckpt"
+    #checkpoint = torch.load(CKPT_PATH)
+    #model.load_state_dict(checkpoint['state_dict'])
+
+    
+
+    train_dataloader, val_dataloader, test_dataloader = create_dataloaders(PATH_DATA=PATH_DATA, transforms=transforms, net_type=net_type,batch_size=batch_size,num_workers=num_workers)
 
     trainer.fit(model, train_dataloader, val_dataloader)
-    trainer.test(model=model,dataloaders=test_dataloader,verbose=True)
+    #trainer.test(model=model,dataloaders=test_dataloader,verbose=True)
 
+    print("check if parameters are being updated")    
+    # Check if parameters are being updated
+    for name, param in model.named_parameters():
+        print("name", name)
+        print("param", param)
+        if param.requires_grad and param.grad is not None:
+            print(f"Parameter {name} is being updated: {param.grad.abs().sum() != 0}")
+
+    print("\nfinished check")
     return model

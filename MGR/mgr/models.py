@@ -178,7 +178,6 @@ class LitNet(pl.LightningModule):
 
        
     def configure_optimizers(self):
-
         return self.optimizer
 
 
@@ -232,6 +231,17 @@ class NNET1D(nn.Module):
             nn.Linear(64, 8),
             nn.Softmax(dim=1)
         )
+
+
+        self.apply(self._init_weights)
+
+    def _init_weights(self, module):
+        # Initialize only self.classifer weights
+        # We need the weights of the trained CNNs
+        if isinstance(module, nn.Linear):
+            nn.init.xavier_uniform_(module.weight)
+            nn.init.constant_(module.bias, 0.0)
+        
 
     def forward(self, x):
 
@@ -301,9 +311,15 @@ class NNET2D(nn.Module):
             nn.Softmax(dim=1)
         )
 
-        # I remove the initialization part because it's not needed
+        self.apply(self._init_weights)
 
-
+    def _init_weights(self, module):
+        # Initialize only self.classifer weights
+        # We need the weights of the trained CNNs
+        if isinstance(module, nn.Linear):
+            nn.init.xavier_uniform_(module.weight)
+            nn.init.constant_(module.bias, 0.0)
+        
     def forward(self,x):
         c1 = self.c1(x) 
         c2 = self.c2(c1)

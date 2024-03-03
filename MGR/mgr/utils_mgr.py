@@ -399,7 +399,7 @@ def main_train(model_net, max_epochs=1, optimizer=None,  lr=1,
         log_every_n_steps=1,
         deterministic=True,
         callbacks=[early_stop_callback],
-        devices = -1,
+        devices = "auto",
         accelerator='cuda' if torch.cuda.is_available() else 'cpu'
     )
 
@@ -418,6 +418,15 @@ def main_train(model_net, max_epochs=1, optimizer=None,  lr=1,
     train_dataloader, val_dataloader, test_dataloader = create_dataloaders(PATH_DATA=PATH_DATA, transforms=transforms, net_type=net_type,batch_size=batch_size,num_workers=num_workers)
 
     trainer.fit(model, train_dataloader, val_dataloader)
-    trainer.test(model=model,dataloaders=test_dataloader,verbose=True)
+    #trainer.test(model=model,dataloaders=test_dataloader,verbose=True)
 
+    print("check if parameters are being updated")    
+    # Check if parameters are being updated
+    for name, param in model.named_parameters():
+        print("name", name)
+        print("param", param)
+        if param.requires_grad and param.grad is not None:
+            print(f"Parameter {name} is being updated: {param.grad.abs().sum() != 0}")
+
+    print("\nfinished check")
     return model
