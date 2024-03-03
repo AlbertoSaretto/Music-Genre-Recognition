@@ -1,3 +1,9 @@
+"""
+Nota di Diego 3-3-2024
+Io discarderei questo script e lo rifarei usando main_train (vedi exploring_transformations.py)
+
+"""
+
 
 import warnings
 #disable warnings
@@ -43,7 +49,7 @@ def main(max_epochs,model):
         log_every_n_steps=1,
         deterministic=True,
         callbacks=[early_stop_callback],
-        devices = -1,
+        devices ="auto", # Diego: questo mi dà problemi
         accelerator='cuda' if torch.cuda.is_available() else 'cpu'
     )
     
@@ -63,4 +69,4 @@ def main(max_epochs,model):
     trainer.test(model=model,dataloaders=test_dataloader,verbose=True)
 
 if __name__ == "__main__":
-    main(max_epochs=5,model = LitNet(NNET2D(), lr=1))
+    main(max_epochs=5,model = LitNet(NNET2D(), lr=1e-3))
