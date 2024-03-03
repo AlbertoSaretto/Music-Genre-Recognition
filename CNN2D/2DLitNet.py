@@ -1,3 +1,9 @@
+"""
+Nota di Diego 3-3-2024
+Io discarderei questo script e lo rifarei usando main_train (vedi exploring_transformations.py)
+
+"""
+
 
 import warnings
 #disable warnings
