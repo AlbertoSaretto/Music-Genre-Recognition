@@ -128,7 +128,7 @@ class NNET1D_plain(nn.Module):
 class NNET1D_BN(nn.Module):
         
     def __init__(self):
-        super(NNET1D_plain, self).__init__()
+        super(NNET1D_BN, self).__init__()
         
         
         self.c1 = nn.Sequential(
