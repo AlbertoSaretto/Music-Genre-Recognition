@@ -1,5 +1,5 @@
 """
-ME LO SEGNO QUA PERCHé NON SAPRE IDOVE ALTRO SEGNARLO
+ME LO SEGNO QUA PERCHé NON SAPREI DOVE ALTRO SEGNARLO
 
 from argparse import ArgumentParser
 
@@ -315,21 +315,39 @@ class NNET1D_BN_DropOut(nn.Module):
 
 if __name__ == "__main__":
 
-    
+    # Data augmentation
+    import audiomentations as audio
+
+    transforms = audio.Compose([   
+        # add gaussian noise to the samples
+        audio.AddGaussianNoise(min_amplitude=0.001, max_amplitude=0.015, p=0.5),
+        # change the speed or duration of the signal without changing the pitch
+        #audio.TimeStretch(min_rate=0.8, max_rate=1.25, p=0.5),
+        # pitch shift the sound up or down without changing the tempo
+        #audio.PitchShift(min_semitones=-4, max_semitones=4, p=0.5)
+        # adds silence
+        audio.TimeMask(min_band_part=0.1, max_band_part=0.15, fade=True, p=1.0)
+    ])
+        
    
     """
     ATTENZIONE: NORMALIZZAZIONE???
-   
+    Sembra che i dati siano già parzialmente normalizzati
     """
 
+    model_net = LitNet(NNET1D_BN())
+    lr=1e-4
+    #optimizer = torch.optim.SGD(model_net.parameters(), lr=lr,momentum=0.2)
+
     main_train(max_epochs=100,
-                model_net = LitNet(NNET1D()),
+                model_net = model_net,
                 net_type='1D',
                 transforms=None,
                 PATH_DATA="../data/",
                 batch_size=32,
                 fast_dev_run=False,
-                lr=0.0001
+                optimizer=None, # None --> Adam,
+                lr=lr,
                 )
         
   
