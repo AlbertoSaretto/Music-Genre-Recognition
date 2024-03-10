@@ -10,6 +10,7 @@ from sklearn import preprocessing
 
 
 
+
 class DataAudioDebug(Dataset):
 
     def __init__(self, df, transform = None, PATH_DATA="data/",  net_type = "1D", test = False):
@@ -68,14 +69,11 @@ class DataAudioDebug(Dataset):
                 mel = librosa.power_to_db(mel).T         #One possibility is to put here ref=np.max to normalize the data
                 return mel
             
-            return audio[np.newaxis,:]
-        
+            #return audio[np.newaxis,:]
+            return audio
             
 
     def __getitem__(self, idx):
-
-        # For debuggin purpose, I fix the track to be dealt with
-        idx = 1
 
         # get input and label
         try:
@@ -86,21 +84,20 @@ class DataAudioDebug(Dataset):
             x = self.create_input(idx+1)
             y = self.label[idx+1]
         
-        print("True Label: ", y)
         #Scale data
-        scaler = preprocessing.StandardScaler(copy=False)
-        x = scaler.fit_transform(x)
+        #scaler = preprocessing.StandardScaler(copy=False)
+        #x = scaler.fit_transform(x)
 
         if self.transform:
             
             if self.type=="1D":
+                 x = preprocessing.StandardScaler().fit_transform(x)
                  # Audiogmentations library requires to specify the sample rate
-                 x = self.transform(x,44100) # Using 44100, I should make this more robust using sr from previous function
+                 x = self.transform(x, 44100) # Using 44100, I should make this more robust using sr from previous function
             else:
                 x = self.transform(x)
            
         return x,y
-
 
 
 
