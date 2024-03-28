@@ -295,15 +295,15 @@ def display_mel(idx, n_samples, n_fft, n_mels, time_bin, sr_i=None, PATH_DATA="d
 
     return 0
 
-def create_dataloaders(PATH_DATA="data/",transforms=None,batch_size=64,num_workers=os.cpu_count(),net_type='1D'):
+def create_dataloaders(PATH_DATA="data/",transforms=None,batch_size=64,num_workers=os.cpu_count(),net_type='1D', mfcc=False, normalize=False):
     from mgr.datasets import DataAudio
     from torch.utils.data import DataLoader
     
     train_set, val_set, test_set = import_and_preprocess_data(PATH_DATA)
 
-    train_dataset  = DataAudio(train_set, transform = transforms, PATH_DATA=PATH_DATA, net_type=net_type)
-    val_dataset    = DataAudio(val_set, transform = transforms, PATH_DATA=PATH_DATA, net_type=net_type)
-    test_dataset   = DataAudio(test_set, transform = transforms, PATH_DATA=PATH_DATA, net_type=net_type, test = True)
+    train_dataset  = DataAudio(train_set, transform = transforms, PATH_DATA=PATH_DATA, net_type=net_type, mfcc=mfcc, normalize=normalize)
+    val_dataset    = DataAudio(val_set, transform = transforms, PATH_DATA=PATH_DATA, net_type=net_type, mfcc=mfcc, normalize=normalize)
+    test_dataset   = DataAudio(test_set, transform = transforms, PATH_DATA=PATH_DATA, net_type=net_type, test = True, mfcc=mfcc, normalize=normalize)
 
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
     val_dataloader   = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
@@ -360,16 +360,10 @@ def compute_metrics(out_net, label_batch):
 #Function for main training of the network
 
 def main_train(model_net, 
-               max_epochs=1, 
-               optimizer=None,
-               lr=1,
-               config=None,
+               config_optimizer= None,
+               config_train = None,
                PATH_DATA = "data/",
-               transforms=None,
-               net_type='1D',
-               batch_size=64,
-               num_workers=os.cpu_count(),
-               fast_dev_run=False):
+               transforms=None,):
     
     import pytorch_lightning as pl
     from mgr.models import LitNet
@@ -388,44 +382,40 @@ def main_train(model_net,
         device_name = torch.cuda.get_device_name(current_device)
         print('{} {} GPU available'.format(str(device_count), str(device_name)))
 
-    # Define the optimizer
-    if optimizer is None:
-        optimizer = torch.optim.Adam(model_net.parameters(), lr=lr)
-      
+    # Define the optimizer as Adam
+    optimizer = torch.optim.Adam(model_net.parameters(), lr = config_optimizer['lr'], weight_decay = config_optimizer['weight_decay'])
+        
     # Define the EarlyStopping callback
     early_stop_callback = pl.callbacks.EarlyStopping(
         monitor='val_loss',  # Monitor the validation loss
         min_delta=0.01,     # Minimum change in the monitored metric
-        patience=10,          # Number of epochs with no improvement after which training will be stopped
+        patience=config_train['patience'],          # Number of epochs with no improvement after which training will be stopped
         verbose=True,
         mode='min'           # Mode: 'min' if you want to minimize the monitored quantity (e.g., loss)
     )
 
     # Set the trainer's device to GPU if available
     trainer = pl.Trainer(
-        max_epochs=max_epochs,
+        max_epochs=config_train['max_epochs'],
         check_val_every_n_epoch=1,
         log_every_n_steps=1,
         deterministic=True,
         callbacks=[early_stop_callback],
         devices = "auto",
         accelerator='cuda' if torch.cuda.is_available() else 'cpu',
-        fast_dev_run=fast_dev_run,
+        fast_dev_run=config_train['fast_dev_run'],
     )
 
+    model = LitNet(model_net, optimizer = optimizer, config_optimizer = config_optimizer)
 
-    model = LitNet(model_net, lr=lr, config=config)
 
-
-    
     # Load model weights from checkpoint
     #CKPT_PATH = "./lightning_logs/version_16/checkpoints/epoch=19-step=2000.ckpt"
     #checkpoint = torch.load(CKPT_PATH)
     #model.load_state_dict(checkpoint['state_dict'])
 
-    
 
-    train_dataloader, val_dataloader, test_dataloader = create_dataloaders(PATH_DATA=PATH_DATA, transforms=transforms, net_type=net_type,batch_size=batch_size,num_workers=num_workers)
+    train_dataloader, val_dataloader, test_dataloader = create_dataloaders(PATH_DATA=PATH_DATA, transforms=transforms, net_type=config_train['net_type'], batch_size = config_train['batch_size'], num_workers = config_train['num_workers'], mfcc = config_train['mfcc'], normalize = config_train['normalize'])
 
     trainer.fit(model, train_dataloader, val_dataloader)
     #trainer.test(model=model,dataloaders=test_dataloader,verbose=True)
