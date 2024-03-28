@@ -420,16 +420,5 @@ def main_train(model_net,
     trainer.fit(model, train_dataloader, val_dataloader)
     #trainer.test(model=model,dataloaders=test_dataloader,verbose=True)
 
-    """
-    print("check if parameters are being updated")    
-    # Check if parameters are being updated
-    for name, param in model.named_parameters():
-        print("name", name)
-        print("param", param)
-        if param.requires_grad and param.grad is not None:
-            print(f"Parameter {name} is being updated: {param.grad.abs().sum() != 0}")
 
-    print("\nfinished check")
-
-    """
     return model
