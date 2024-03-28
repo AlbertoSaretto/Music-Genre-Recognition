@@ -10,9 +10,9 @@ from sklearn import preprocessing
 
 
 
-class DataAudioDebug(Dataset):
+class DataAudio(Dataset):
 
-    def __init__(self, df, transform = None, PATH_DATA="data/",  net_type = "1D", test = False):
+    def __init__(self, df, transform = None, PATH_DATA="data/",  net_type = "1D", test = False, mfcc=False, normalize = False):
         
         # Get track index
         self.track_ids = df['index'].values
@@ -31,6 +31,12 @@ class DataAudioDebug(Dataset):
 
         #Path to data
         self.path = PATH_DATA
+
+        #mfcc
+        self.mfcc = mfcc
+
+        #Normalize
+        self.normalize = normalize
 
     def __len__(self):
 
@@ -62,35 +68,17 @@ class DataAudioDebug(Dataset):
                 
             if(self.type=="2D"):
                 #Get 2D spectrogram
-                stft = np.abs(librosa.stft(audio, n_fft=1024, hop_length=512))
+                stft = np.abs(librosa.stft(audio, n_fft=2048, hop_length=1024))
                 
-                mel = librosa.feature.melspectrogram(sr=sr, S=stft**2, n_mels=128)[:,:512]
-                mel = librosa.power_to_db(mel).T         #One possibility is to put here ref=np.max to normalize the data
-                return mel
-            
-            return audio[np.newaxis,:]
-        
-            
+                mel = librosa.feature.melspectrogram(sr=sr, S=stft**2, n_mels=128)[:,:256]
 
-    def __getitem__(self, idx):
+                if self.mfcc:
+                    mfcc = librosa.feature.mfcc(S=librosa.power_to_db(mel), n_mfcc=20)
+                    mfcc = mfcc.T
+                    return mfcc
 
-        # For debuggin purpose, I fix the track to be dealt with
-        idx = 1
 
-        # get input and label
-        try:
-            x = self.create_input(idx)
-            y = self.label[idx] 
-        except:
-            print("\nNot able to load track number ", self.track_ids[idx], " Loading next one\n")
-            x = self.create_input(idx+1)
-            y = self.label[idx+1]
-        
-        print("True Label: ", y)
-        #Scale data
-        scaler = preprocessing.StandardScaler(copy=False)
-        x = scaler.fit_transform(x)
-
+<<<<<<< HEAD
         if self.transform:
             
             if self.type=="1D":
@@ -172,6 +160,8 @@ class DataAudio(Dataset):
                     return mfcc
 
 
+=======
+>>>>>>> origin/main
                 mel = librosa.power_to_db(mel).T         #One possibility is to put here ref=np.max to normalize the data
                 return mel
             
