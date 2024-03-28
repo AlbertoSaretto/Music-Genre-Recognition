@@ -29,6 +29,7 @@ import torch.nn.functional as F
 from torchvision.transforms import v2
 from torchaudio.transforms import TimeStretch, FrequencyMasking, TimeMasking
 import audiomentations as audio
+import os
 
 # Start by removing stuff that requires an experiment, like Dropout or BatchNorm
 class NNET1D_plain(nn.Module):
@@ -503,7 +504,7 @@ if __name__ == "__main__":
     # Data augmentation
     import audiomentations as audio
 
-    transforms = audio.Compose([   
+    transform = audio.Compose([   
         # add gaussian noise to the samples
         audio.AddGaussianNoise(min_amplitude=0.001, max_amplitude=0.015, p=0.5),
         # change the speed or duration of the signal without changing the pitch
@@ -521,19 +522,30 @@ if __name__ == "__main__":
     """
 
     model_net = NNET1D_K()
-    lr=1e-4
-    #optimizer = torch.optim.SGD(model_net.parameters(), lr=lr,momentum=0.2)
-
-    main_train(max_epochs=100,
-                model_net = model_net,
-                net_type='1D',
-                transforms=None,
-                PATH_DATA="../data/",
-                batch_size=16,
-                fast_dev_run=False,
-                optimizer=None, # None --> Adam,
-                lr=lr,
+    
+    config_optimizer = {'lr': 1e-4,
+              'lr_step': 10,
+              'lr_gamma': 0.05,
+              'weight_decay': 0.005,
+              }
+    
+    config_train = {"fast_dev_run":False,
+                    'max_epochs': 100,
+                    'batch_size': 64,
+                    'num_workers': os.cpu_count(),
+                    'patience': 20,
+                    'net_type':'1D',
+                    'mfcc': True,
+                    'normalize': True
+                    }
+    
+    main_train(model_net =model_net,
+                transforms=transform,
+                PATH_DATA="../data/", 
+                config_optimizer=config_optimizer,
+                config_train=config_train,
                 )
+    
         
   
     
