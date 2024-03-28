@@ -63,7 +63,7 @@ def define_model(trial=None,optuna_params=None,in_features=4096):
  
 def objective(trial):
 
-    model_net = NNET1D 
+    model_net = NNET1D()
 
     # Set the hyperparameters in the config dictionary
     hyperparameters = {
