@@ -321,41 +321,37 @@ class NNET1D_K(nn.Module):
         
         
         self.c1 = nn.Sequential(
-            nn.Conv1d(in_channels=1, out_channels=64, kernel_size=3, stride=8, padding=64),
-            nn.BatchNorm1d(64),
+            nn.Conv1d(in_channels=1, out_channels=32, kernel_size=512,stride=256),
+            nn.BatchNorm1d(32),
             nn.ReLU(inplace = True),
-            nn.MaxPool1d(kernel_size=4, stride=4),
-          
+            #nn.MaxPool1d(kernel_size=4, stride=4),
         )
-        
+                
 
         self.c2 = nn.Sequential(
-            nn.Conv1d(in_channels=64, out_channels=128, kernel_size=8, stride=2, padding=16),
-            nn.BatchNorm1d(128),
-            nn.ReLU(inplace = True),
-            nn.MaxPool1d(kernel_size=2, stride=2),
-          
-        )
+                    nn.Conv1d(in_channels=32, out_channels=64, kernel_size=8,),
+                    nn.BatchNorm1d(64),
+                    nn.ReLU(inplace = True),
+                # nn.MaxPool1d(kernel_size=4, stride=4),
+                )
+
 
         self.c3 = nn.Sequential(
-            nn.Conv1d(in_channels=128, out_channels=256, kernel_size=16, stride=2, padding=8),
-            nn.BatchNorm1d(256),
-            nn.ReLU(inplace = True),
-            nn.MaxPool1d(kernel_size=2, stride=2),
-         
-        )
-        
-        #Trying to add 4th convolutional block
+                    nn.Conv1d(in_channels=64, out_channels=128, kernel_size=4,),
+                    nn.BatchNorm1d(128),
+                    nn.ReLU(inplace = True),
+                    #nn.AvgPool1d(kernel_size=8, stride=4),
+                )
+
         self.c4 = nn.Sequential(
-            nn.Conv1d(in_channels=256, out_channels=512, kernel_size=8,stride=2, padding=4),
-            nn.BatchNorm1d(512),
-            nn.ReLU(inplace = True),
-           
-        )
-        
+                    nn.Conv1d(in_channels=128, out_channels=256, kernel_size=4),
+                    nn.BatchNorm1d(256),
+                    nn.ReLU(inplace = True),
+                    #nn.AvgPool1d(kernel_size=16, stride=8),
+                )
 
         self.fc = nn.Sequential(
-            nn.Linear(4096, 1024), 
+            nn.Linear(7680, 1024), 
             nn.ReLU(inplace = True),
 
             nn.Linear(1024, 512), 
@@ -388,13 +384,10 @@ class NNET1D_K(nn.Module):
     def forward(self, x):
         
         c1 = self.c1(x)
-            
         c2 = self.c2(c1)
-       
         c3 = self.c3(c2)
-        
         c4 = self.c4(c3)
-       
+        
         max_pool = F.max_pool1d(c4, kernel_size=64)
         avg_pool = F.avg_pool1d(c4, kernel_size=64)
 
@@ -405,7 +398,6 @@ class NNET1D_K(nn.Module):
         # x dimensions are [batch_size, channels, length, width]
         # All dimensions are flattened except batch_size  
         x = torch.flatten(x, start_dim=1)
-
         x = self.fc(x)
         return x 
 
@@ -504,6 +496,8 @@ class NNET1D_Lite(nn.Module):
         x = self.fc(x)
         return x 
 
+
+
 if __name__ == "__main__":
 
     # Data augmentation
@@ -526,7 +520,7 @@ if __name__ == "__main__":
     Sembra che i dati siano già parzialmente normalizzati
     """
 
-    model_net = LitNet(NNET1D_Lite())
+    model_net = NNET1D_K()
     lr=1e-4
     #optimizer = torch.optim.SGD(model_net.parameters(), lr=lr,momentum=0.2)
 
