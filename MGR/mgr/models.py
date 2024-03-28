@@ -10,7 +10,7 @@ from torchmetrics.classification import MulticlassConfusionMatrix, MulticlassF1S
 # A LightningModule defines a full system (ie: a GAN, autoencoder, BERT or a simple Image Classifier).
 class LitNet(pl.LightningModule):
     
-    def __init__(self, model_net, lr=1, weight_decay = 0.0, lr_step = 1, lr_gamma = 0, config=None):
+    def __init__(self, model_net, optimizer = None, config_optimizer = None):
        
         super().__init__()
         
@@ -68,15 +68,26 @@ class LitNet(pl.LightningModule):
         
 
        
-    # If no configurations regarding the optimizer are specified, use the default ones
-        try:
-            self.optimizer = Adam(self.net.parameters(),
-                                       lr=config["lr"],rho=config["rho"], eps=config["eps"], weight_decay=config["weight_decay"])
-        except:
+    # If no optimizer is passed, the default optimizer is Adam
+        
+
+
+
+        #try:
+        #    self.optimizer = Adam(self.net.parameters(),
+        #                               lr=config["lr"],rho=config["rho"], eps=config["eps"], weight_decay=config["weight_decay"])
+        if optimizer is None:
                 print("Using default optimizer parameters")
-                self.optimizer = Adam(self.net.parameters(), lr = lr, weight_decay=weight_decay)
-                self.lr_step = lr_step
-                self.lr_gamma = lr_gamma
+                self.optimizer = Adam(self.net.parameters(), lr = 1e-5)
+        else: 
+            self.optimizer = optimizer
+
+        try:
+            self.lr_step = config_optimizer["lr_step"]
+            self.lr_gamma = config_optimizer["lr_gamma"]
+        except:
+            self.lr_step = 1
+            self.lr_gamma = 0.0
 
 
     def forward(self,x):
@@ -181,6 +192,7 @@ class LitNet(pl.LightningModule):
        
     def configure_optimizers(self):
         # This function is called by Lightning to configure the optimizer
+
         scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=self.lr_step, gamma=self.lr_gamma)
 
         return {"optimizer": self.optimizer, "lr_scheduler": scheduler}

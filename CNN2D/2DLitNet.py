@@ -6,6 +6,7 @@ import torch.nn.functional as F
 from torchvision.transforms import v2
 from torchaudio.transforms import TimeStretch, FrequencyMasking, TimeMasking
 import audiomentations as audio
+import os
 
 # Start by removing stuff that requires an experiment, like Dropout or BatchNorm
 class NNET2D(nn.Module):
@@ -78,25 +79,28 @@ if __name__ == "__main__":
         v2.ToTensor(),
     ])
    
-    """
-    ATTENZIONE: NORMALIZZAZIONE???
-   
-    """
+    
+    config_optimizer = {'lr': 5e-5,
+              'lr_step': 10,
+              'lr_gamma': 0.05,
+              'weight_decay': 0.005,
+              }
+    
+    config_train = {"fast_dev_run":False,
+                    'max_epochs': 100,
+                    'batch_size': 64,
+                    'num_workers': os.cpu_count(),
+                    'patience': 20,
+                    'net_type':'2D',
+                    'mfcc': True,
+                    'normalize': True
+                    }
 
-    main_train(max_epochs=100,
-                model_net = NNET2D(),
-                net_type='2D',
+    main_train(model_net = NNET2D(),
                 transforms=transform,
-                PATH_DATA="../data/",
-                batch_size=64,
-                fast_dev_run=False,
-                lr=5e-5,
-                lr_step = 10,    
-                lr_gamma = 0.05,
-                weight_decay=0.005,
-                patience= 20,
-                mfcc=True,
-                normalize = True
+                PATH_DATA="../data/", 
+                config_optimizer=config_optimizer,
+                config_train=config_train,
                 )
     
 
