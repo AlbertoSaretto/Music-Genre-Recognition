@@ -10,7 +10,9 @@ from torchmetrics.classification import MulticlassConfusionMatrix, MulticlassF1S
 # A LightningModule defines a full system (ie: a GAN, autoencoder, BERT or a simple Image Classifier).
 class LitNet(pl.LightningModule):
     
+
     def __init__(self, model_net, optimizer = None, config_optimizer = None):
+
        
         super().__init__()
         
@@ -86,8 +88,11 @@ class LitNet(pl.LightningModule):
             self.lr_step = config_optimizer["lr_step"]
             self.lr_gamma = config_optimizer["lr_gamma"]
         except:
+
             self.lr_step = 1
             self.lr_gamma = 0.0
+
+
 
 
     def forward(self,x):

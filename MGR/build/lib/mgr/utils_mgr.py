@@ -364,6 +364,7 @@ def main_train(model_net,
                config_train = None,
                PATH_DATA = "data/",
                transforms=None,):
+
     
     import pytorch_lightning as pl
     from mgr.models import LitNet
@@ -384,6 +385,7 @@ def main_train(model_net,
 
     # Define the optimizer as Adam
     optimizer = torch.optim.Adam(model_net.parameters(), lr = config_optimizer['lr'], weight_decay = config_optimizer['weight_decay'])
+
         
     # Define the EarlyStopping callback
     early_stop_callback = pl.callbacks.EarlyStopping(
@@ -406,7 +408,9 @@ def main_train(model_net,
         fast_dev_run=config_train['fast_dev_run'],
     )
 
+
     model = LitNet(model_net, optimizer = optimizer, config_optimizer = config_optimizer)
+
 
 
     # Load model weights from checkpoint
@@ -415,7 +419,9 @@ def main_train(model_net,
     #model.load_state_dict(checkpoint['state_dict'])
 
 
+
     train_dataloader, val_dataloader, test_dataloader = create_dataloaders(PATH_DATA=PATH_DATA, transforms=transforms, net_type=config_train['net_type'], batch_size = config_train['batch_size'], num_workers = config_train['num_workers'], mfcc = config_train['mfcc'], normalize = config_train['normalize'])
+
 
     trainer.fit(model, train_dataloader, val_dataloader)
     #trainer.test(model=model,dataloaders=test_dataloader,verbose=True)
