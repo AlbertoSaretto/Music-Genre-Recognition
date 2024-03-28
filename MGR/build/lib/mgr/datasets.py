@@ -78,7 +78,6 @@ class DataAudio(Dataset):
                     return mfcc
 
 
-<<<<<<< HEAD
         if self.transform:
             
             if self.type=="1D":
@@ -160,8 +159,6 @@ class DataAudio(Dataset):
                     return mfcc
 
 
-=======
->>>>>>> origin/main
                 mel = librosa.power_to_db(mel).T         #One possibility is to put here ref=np.max to normalize the data
                 return mel
             

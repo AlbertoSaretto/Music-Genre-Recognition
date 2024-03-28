@@ -360,29 +360,11 @@ def compute_metrics(out_net, label_batch):
 #Function for main training of the network
 
 def main_train(model_net, 
-<<<<<<< HEAD
                config_optimizer= None,
                config_train = None,
                PATH_DATA = "data/",
                transforms=None,):
-=======
-               max_epochs=1, 
-               optimizer=None,
-               lr=1,
-               lr_step=1,
-               lr_gamma=0.0,
-               weight_decay=0.0,
-               config=None,
-               PATH_DATA = "data/",
-               transforms=None,
-               net_type='1D',
-               batch_size=64,
-               num_workers=os.cpu_count(),
-               fast_dev_run=False,
-               patience = 10,
-               mfcc = False,
-               normalize = False):
->>>>>>> origin/main
+
     
     import pytorch_lightning as pl
     from mgr.models import LitNet
@@ -402,22 +384,16 @@ def main_train(model_net,
         print('{} {} GPU available'.format(str(device_count), str(device_name)))
 
     # Define the optimizer as Adam
-<<<<<<< HEAD
+
     optimizer = torch.optim.Adam(model_net.parameters(), lr = config_optimizer['lr'], weight_decay = config_optimizer['weight_decay'])
-=======
-    #if optimizer is None:
-    #    optimizer = torch.optim.Adam(model_net.parameters(), lr=lr, weight_decay=model_net.weight_decay)
->>>>>>> origin/main
+
+
         
     # Define the EarlyStopping callback
     early_stop_callback = pl.callbacks.EarlyStopping(
         monitor='val_loss',  # Monitor the validation loss
         min_delta=0.01,     # Minimum change in the monitored metric
-<<<<<<< HEAD
         patience=config_train['patience'],          # Number of epochs with no improvement after which training will be stopped
-=======
-        patience=patience,          # Number of epochs with no improvement after which training will be stopped
->>>>>>> origin/main
         verbose=True,
         mode='min'           # Mode: 'min' if you want to minimize the monitored quantity (e.g., loss)
     )
@@ -434,11 +410,8 @@ def main_train(model_net,
         fast_dev_run=config_train['fast_dev_run'],
     )
 
-<<<<<<< HEAD
+
     model = LitNet(model_net, optimizer = optimizer, config_optimizer = config_optimizer)
-=======
-    model = LitNet(model_net, lr=lr, weight_decay=weight_decay, lr_step=lr_step, lr_gamma=lr_gamma,config=config)
->>>>>>> origin/main
 
 
     # Load model weights from checkpoint
@@ -447,11 +420,9 @@ def main_train(model_net,
     #model.load_state_dict(checkpoint['state_dict'])
 
 
-<<<<<<< HEAD
+
     train_dataloader, val_dataloader, test_dataloader = create_dataloaders(PATH_DATA=PATH_DATA, transforms=transforms, net_type=config_train['net_type'], batch_size = config_train['batch_size'], num_workers = config_train['num_workers'], mfcc = config_train['mfcc'], normalize = config_train['normalize'])
-=======
-    train_dataloader, val_dataloader, test_dataloader = create_dataloaders(PATH_DATA=PATH_DATA, transforms=transforms, net_type=net_type,batch_size=batch_size,num_workers=num_workers, mfcc=mfcc, normalize=normalize)
->>>>>>> origin/main
+
 
     trainer.fit(model, train_dataloader, val_dataloader)
     #trainer.test(model=model,dataloaders=test_dataloader,verbose=True)
