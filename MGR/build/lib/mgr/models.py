@@ -89,6 +89,7 @@ class LitNet(pl.LightningModule):
             self.lr_gamma = config_optimizer["lr_gamma"]
         except:
 
+
             self.lr_step = 1
             self.lr_gamma = 0.0
 

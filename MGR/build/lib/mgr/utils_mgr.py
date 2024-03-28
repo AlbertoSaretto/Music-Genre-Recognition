@@ -384,7 +384,9 @@ def main_train(model_net,
         print('{} {} GPU available'.format(str(device_count), str(device_name)))
 
     # Define the optimizer as Adam
+
     optimizer = torch.optim.Adam(model_net.parameters(), lr = config_optimizer['lr'], weight_decay = config_optimizer['weight_decay'])
+
 
         
     # Define the EarlyStopping callback
@@ -410,7 +412,6 @@ def main_train(model_net,
 
 
     model = LitNet(model_net, optimizer = optimizer, config_optimizer = config_optimizer)
-
 
 
     # Load model weights from checkpoint
