@@ -73,13 +73,13 @@ def objective(trial):
     config_optimizer = {'lr': trial.suggest_float('lr', 1e-5, 1e-1),
               'lr_step': 10,
               'lr_gamma': 0.05,
-              'weight_decay': 0.005,
+              'weight_decay': trial.suggest_float('weight_decay', 5e-5, 1e-3)
               }
 
 
     config_train = {"fast_dev_run":False,
                     'max_epochs': 1,
-                    'batch_size': 64,
+                    'batch_size': 16,
                     'num_workers': os.cpu_count(),
                     'patience': 20,
                     'net_type':'1D',
@@ -122,8 +122,12 @@ def HyperTune(study_name="first-study", n_trials=1, timeout=300):
     pruner = optuna.pruners.BasePruner
     # print(pruner) <optuna.pruners._nop.NopPruner object at 0x7f4c2466ed50>
     # print(type(pruner)) <class 'optuna.pruners._nop.NopPruner'>
-
-    study = optuna.create_study(study_name=study_name, direction="minimize", pruner=pruner, load_if_exists=True) #storage="sqlite:///myfirstoptimizationstudy.db"
+     # Add stream handler of stdout to show the messages
+    optuna.logging.get_logger("optuna").addHandler(logging.StreamHandler(sys.stdout))
+    study_name = "example-study2"  # Unique identifier of the study.
+    storage_name = "sqlite:///{}.db".format(study_name)
+ 
+    study = optuna.create_study(study_name=study_name, direction="minimize", pruner=pruner, load_if_exists=True,storage=storage_name) #storage="sqlite:///myfirstoptimizationstudy.db"
     study.optimize(objective, n_trials=n_trials, timeout=timeout)
 
     print("Number of finished trials: {}".format(len(study.trials)))
@@ -142,8 +146,16 @@ def HyperTune(study_name="first-study", n_trials=1, timeout=300):
 
 if __name__ == "__main__":
     pl.seed_everything(42)
+
+    import logging
+    import sys
+
+   
+
     trial = HyperTune() 
 
     # Save trial as pickle
     with open('trialv2.pickle', 'wb') as f:
         pickle.dump(trial, f)
+
+    
