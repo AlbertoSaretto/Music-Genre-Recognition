@@ -14,7 +14,7 @@ class NNET1D_BN_hyper(nn.Module):
     def __init__(self,trial):
         super(NNET1D_BN_hyper, self,).__init__()
         
-        channels = [trial.suggest_int(f'channels_{i}', 1, 256) for i in range(4)]
+        channels = [trial.suggest_int(f'channels_{i}', 64, 256) for i in range(4)]
 
         self.c1 = nn.Sequential(
             nn.Conv1d(in_channels=1, out_channels=channels[0], kernel_size=128, stride=32, padding=64),
@@ -50,7 +50,7 @@ class NNET1D_BN_hyper(nn.Module):
         )
         
 
-        self.fc = None
+        #self.fc = self._define_fc(trial=trial,in_features=channels[3])
         self.trial = trial
         self.apply(self._init_weights)
         #self.apply(self._define_fc) 
@@ -64,10 +64,10 @@ class NNET1D_BN_hyper(nn.Module):
 
     def _define_fc(self, trial,in_features,optuna_params=None):
         # Get from trial the number of n_components
-        
+        print("in_features",in_features)
         if trial is not None:
             # Optimize number of layers, hidden units and dropout rate
-            n_layers = trial.suggest_int('n_layers', 2, 10)
+            n_layers = trial.suggest_int('n_layers', 4, 10)
             layers = []
             in_features = in_features
             for i in range(n_layers):
@@ -81,7 +81,7 @@ class NNET1D_BN_hyper(nn.Module):
             layers.append(nn.Linear(in_features, 8)) # 10 classes to classify
             layers.append(nn.Softmax(dim=1))
 
-            self.fc = nn.Sequential(*layers)
+            #self.fc = nn.Sequential(*layers)
             return nn.Sequential(*layers)
         
         elif optuna_params is not None:
@@ -123,8 +123,8 @@ class NNET1D_BN_hyper(nn.Module):
         # x dimensions are [batch_size, channels, length, width]
         # All dimensions are flattened except batch_size  
         x = torch.flatten(x, start_dim=1)
-        
-        x = self.fc(x, in_features=x.shape[1])
+        self.fc = self._define_fc(trial=self.trial,in_features=x.shape[1])
+        x = self.fc(x)
         return x 
 
 
@@ -185,7 +185,7 @@ def define_model(trial=None,optuna_params=None,in_features=4096):
 def objective(trial):
 
     
-    model_net = NNET1D()
+    model_net = NNET1D_BN_hyper(trial=trial)
 
     
     config_optimizer = {'lr': trial.suggest_float('lr', 1e-5, 1e-1),
@@ -270,9 +270,9 @@ if __name__ == "__main__":
 
     trial = HyperTune()
 
-    """
+  
     # Save trial as pickle
-    with open('trialv2.pickle', 'wb') as f:
+    with open('cnn-tune-29-03.pickle', 'wb') as f:
         pickle.dump(trial, f)
-    """
+  
     
