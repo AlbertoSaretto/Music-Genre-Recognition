@@ -6,6 +6,126 @@ from mgr.utils_mgr import create_dataloaders
 import torch
 import torch.nn as nn
 import os
+import torch.nn.functional as F
+
+# Adding BatchNorm to avoid overfitting
+class NNET1D_BN_hyper(nn.Module):
+        
+    def __init__(self,trial):
+        super(NNET1D_BN_hyper, self,).__init__()
+        
+        channels = [trial.suggest_int(f'channels_{i}', 1, 256) for i in range(4)]
+
+        self.c1 = nn.Sequential(
+            nn.Conv1d(in_channels=1, out_channels=channels[0], kernel_size=128, stride=32, padding=64),
+            nn.BatchNorm1d(channels[0]),
+            nn.ReLU(inplace = True),
+            nn.MaxPool1d(kernel_size=4, stride=4),
+          
+        )
+        
+
+        self.c2 = nn.Sequential(
+            nn.Conv1d(in_channels=channels[0], out_channels=channels[1], kernel_size=32, stride=2, padding=16),
+            nn.BatchNorm1d(channels[1]),
+            nn.ReLU(inplace = True),
+            nn.MaxPool1d(kernel_size=2, stride=2),
+          
+        )
+
+        self.c3 = nn.Sequential(
+            nn.Conv1d(in_channels=channels[1], out_channels=channels[2], kernel_size=16, stride=2, padding=8),
+            nn.BatchNorm1d(channels[2]),
+            nn.ReLU(inplace = True),
+            nn.MaxPool1d(kernel_size=2, stride=2),
+         
+        )
+        
+        
+        self.c4 = nn.Sequential(
+            nn.Conv1d(in_channels=channels[2], out_channels=channels[3], kernel_size=8,stride=2, padding=4),
+            nn.BatchNorm1d(channels[3]),
+            nn.ReLU(inplace = True),
+           
+        )
+        
+
+        self.fc = None
+        self.trial = trial
+        self.apply(self._init_weights)
+        #self.apply(self._define_fc) 
+
+    def _init_weights(self, module):
+        # Initialize only self.classifer weights
+        # We need the weights of the trained CNNs
+        if isinstance(module, nn.Linear):
+            nn.init.xavier_uniform_(module.weight)
+            nn.init.constant_(module.bias, 0.0)
+
+    def _define_fc(self, trial,in_features,optuna_params=None):
+        # Get from trial the number of n_components
+        
+        if trial is not None:
+            # Optimize number of layers, hidden units and dropout rate
+            n_layers = trial.suggest_int('n_layers', 2, 10)
+            layers = []
+            in_features = in_features
+            for i in range(n_layers):
+                out_features = trial.suggest_int('n_units_l{}'.format(i), 4, 256)
+                layers.append(nn.Linear(in_features, out_features))
+                layers.append(nn.ReLU())
+                p = trial.suggest_float('dropout_l{}'.format(i), 0.2, 0.5) 
+                layers.append(nn.Dropout(p))
+                in_features = out_features
+
+            layers.append(nn.Linear(in_features, 8)) # 10 classes to classify
+            layers.append(nn.Softmax(dim=1))
+
+            self.fc = nn.Sequential(*layers)
+            return nn.Sequential(*layers)
+        
+        elif optuna_params is not None:
+            # Optimize number of layers, hidden units and dropout rate
+            n_layers = optuna_params['n_layers']
+            layers = []
+            in_features = 4096
+            for i in range(n_layers):
+                out_features = optuna_params['n_units_l{}'.format(i)]
+                layers.append(nn.Linear(in_features, out_features))
+                layers.append(nn.ReLU())
+                p = optuna_params['dropout_l{}'.format(i)]
+                layers.append(nn.Dropout(p))
+                in_features = out_features
+
+            layers.append(nn.Linear(in_features, 8))
+
+            return nn.Sequential(*layers)
+        
+
+    def forward(self, x):
+
+        c1 = self.c1(x)
+        
+        c2 = self.c2(c1)
+        
+        c3 = self.c3(c2)
+        
+        c4 = self.c4(c3)
+
+
+        max_pool = F.max_pool1d(c4, kernel_size=64)
+        avg_pool = F.avg_pool1d(c4, kernel_size=64)
+
+        #Concatenate max and average pooling
+        x = torch.cat([max_pool, avg_pool], dim = 1) 
+
+        
+        # x dimensions are [batch_size, channels, length, width]
+        # All dimensions are flattened except batch_size  
+        x = torch.flatten(x, start_dim=1)
+        
+        x = self.fc(x, in_features=x.shape[1])
+        return x 
 
 
 # questo lo salvo qua solo per ricordamelo
@@ -61,8 +181,6 @@ def define_model(trial=None,optuna_params=None,in_features=4096):
 
         return nn.Sequential(*layers)
  
-
-
 
 def objective(trial):
 
@@ -124,7 +242,7 @@ def HyperTune(study_name="first-study", n_trials=1, timeout=300):
     # print(type(pruner)) <class 'optuna.pruners._nop.NopPruner'>
      # Add stream handler of stdout to show the messages
     optuna.logging.get_logger("optuna").addHandler(logging.StreamHandler(sys.stdout))
-    study_name = "example-study2"  # Unique identifier of the study.
+    study_name = "cnn-hypertune"  # Unique identifier of the study.
     storage_name = "sqlite:///{}.db".format(study_name)
  
     study = optuna.create_study(study_name=study_name, direction="minimize", pruner=pruner, load_if_exists=True,storage=storage_name) #storage="sqlite:///myfirstoptimizationstudy.db"
@@ -150,12 +268,11 @@ if __name__ == "__main__":
     import logging
     import sys
 
-   
+    trial = HyperTune()
 
-    trial = HyperTune() 
-
+    """
     # Save trial as pickle
     with open('trialv2.pickle', 'wb') as f:
         pickle.dump(trial, f)
-
+    """
     
