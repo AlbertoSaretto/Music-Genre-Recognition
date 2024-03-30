@@ -513,7 +513,9 @@ class NNET1D_BN_hyper(nn.Module):
 
         elif optuna_params is not None:
             print("Using optuna params")
-            channels = [optuna_params[f'channels_{i}'] for i in range(4)]
+            #channels = [optuna_params[f'channels_{i}'] for i in range(4)]
+            # Benchmark = [64,128,256,512]
+            channels = [128,128,256,512] #SETTING MANUALLY. 30-03 TRYING HIGHER CHANNELS FOR EACH LAYER
           
         else: 
             print("Using default channels")
@@ -603,6 +605,27 @@ class NNET1D_BN_hyper(nn.Module):
 
             return nn.Sequential(*layers)
         
+        
+    def dont_optimize_fc(self,in_features):
+        
+        fc = nn.Sequential(
+            nn.Linear(in_features, 512), 
+            nn.ReLU(inplace = True),
+
+            nn.Linear(512, 128),
+            nn.ReLU(inplace = True),
+
+            nn.Linear(128,128),
+            nn.ReLU(inplace = True),
+            
+            nn.Linear(128, 64),
+            nn.ReLU(inplace = True),
+           
+            nn.Linear(64, 8),
+            nn.Softmax(dim=1)
+        )
+
+        return fc
 
     def forward(self, x):
 
@@ -625,7 +648,8 @@ class NNET1D_BN_hyper(nn.Module):
         # x dimensions are [batch_size, channels, length, width]
         # All dimensions are flattened except batch_size  
         x = torch.flatten(x, start_dim=1)
-        self.fc = self._define_fc(in_features=x.shape[1])
+        self.fc = self.dont_optimize_fc(in_features=x.shape[1])
+        
         x = self.fc(x)
         return x 
 
@@ -676,7 +700,7 @@ if __name__ == "__main__":
 
     
     config_train = {"fast_dev_run":False,
-                    'max_epochs': 100,
+                    'max_epochs': 1,
                     'batch_size': 16,
                     'num_workers': os.cpu_count(),
                     'patience': 20,
@@ -684,14 +708,14 @@ if __name__ == "__main__":
                     'mfcc': False,
                     'normalize': False
                     }
-    """
+ 
     main_train(model_net =model_net,
                 transforms=transform,
                 PATH_DATA="../data/", 
                 config_optimizer=config_optimizer,
                 config_train=config_train,
                 )
-    """
+
         
   
     
