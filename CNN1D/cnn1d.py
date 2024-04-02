@@ -515,7 +515,7 @@ class NNET1D_BN_hyper(nn.Module):
             print("Using optuna params")
             #channels = [optuna_params[f'channels_{i}'] for i in range(4)]
             # Benchmark = [64,128,256,512]
-            channels = [128,128,256,512] #SETTING MANUALLY. 30-03 TRYING HIGHER CHANNELS FOR EACH LAYER
+            channels = [256,256,512,1024] #SETTING MANUALLY. 30-03 TRYING HIGHER CHANNELS FOR EACH LAYER
           
         else: 
             print("Using default channels")
@@ -698,9 +698,10 @@ if __name__ == "__main__":
 
     model_net = NNET1D_BN_hyper(optuna_params=optuna_hyper)
 
-    
+    #model_net = NNET1D_BN()
+
     config_train = {"fast_dev_run":False,
-                    'max_epochs': 1,
+                    'max_epochs': 3,
                     'batch_size': 16,
                     'num_workers': os.cpu_count(),
                     'patience': 20,

@@ -49,6 +49,8 @@ class NNET1D_BN_hyper(nn.Module):
            
         )
         
+        
+       
 
         #self.fc = self._define_fc(trial=trial,in_features=channels[3])
         self.trial = trial
@@ -64,7 +66,7 @@ class NNET1D_BN_hyper(nn.Module):
 
     def _define_fc(self, trial,in_features,optuna_params=None):
         # Get from trial the number of n_components
-        print("in_features",in_features)
+       
         if trial is not None:
             # Optimize number of layers, hidden units and dropout rate
             n_layers = trial.suggest_int('n_layers', 4, 10)
@@ -81,10 +83,11 @@ class NNET1D_BN_hyper(nn.Module):
             layers.append(nn.Linear(in_features, 8)) # 10 classes to classify
             layers.append(nn.Softmax(dim=1))
 
-            #self.fc = nn.Sequential(*layers)
             return nn.Sequential(*layers)
         
         elif optuna_params is not None:
+
+            
             # Optimize number of layers, hidden units and dropout rate
             n_layers = optuna_params['n_layers']
             layers = []
@@ -101,6 +104,29 @@ class NNET1D_BN_hyper(nn.Module):
 
             return nn.Sequential(*layers)
         
+        
+    def dont_optimize_fc(self,in_features):
+        
+        fc = nn.Sequential(
+            nn.Linear(in_features, 512), 
+            nn.ReLU(inplace = True),
+
+            nn.Linear(512, 128),
+            nn.ReLU(inplace = True),
+
+            nn.Linear(128,128),
+            nn.ReLU(inplace = True),
+            
+            nn.Linear(128, 64),
+            nn.ReLU(inplace = True),
+           
+            nn.Linear(64, 8),
+            nn.Softmax(dim=1)
+        )
+
+        return fc
+
+
 
     def forward(self, x):
 
@@ -124,6 +150,8 @@ class NNET1D_BN_hyper(nn.Module):
         # All dimensions are flattened except batch_size  
         x = torch.flatten(x, start_dim=1)
         self.fc = self._define_fc(trial=self.trial,in_features=x.shape[1])
+        #self.fc = self.dont_optimize_fc(in_features=x.shape[1])
+        
         x = self.fc(x)
         return x 
 
@@ -188,15 +216,15 @@ def objective(trial):
     model_net = NNET1D_BN_hyper(trial=trial)
 
     
-    config_optimizer = {'lr': trial.suggest_float('lr', 1e-5, 1e-1),
+    config_optimizer = {'lr': trial.suggest_float('lr', 1e-5, 1e-4),
               'lr_step': 10,
               'lr_gamma': 0.05,
-              'weight_decay': trial.suggest_float('weight_decay', 5e-5, 1e-3)
+              'weight_decay': 0
               }
 
 
     config_train = {"fast_dev_run":False,
-                    'max_epochs': 1,
+                    'max_epochs': 10,
                     'batch_size': 16,
                     'num_workers': os.cpu_count(),
                     'patience': 20,
@@ -235,17 +263,18 @@ def objective(trial):
     return trainer.callback_metrics["val_loss"].item()
 
 
-def HyperTune(study_name="first-study", n_trials=1, timeout=300):
+def HyperTune(study_name = "cnn-hypertune" , n_trials=100, timeout=300):
 
-    pruner = optuna.pruners.BasePruner
+   # pruner = optuna.pruners.BasePruner
     # print(pruner) <optuna.pruners._nop.NopPruner object at 0x7f4c2466ed50>
     # print(type(pruner)) <class 'optuna.pruners._nop.NopPruner'>
      # Add stream handler of stdout to show the messages
-    optuna.logging.get_logger("optuna").addHandler(logging.StreamHandler(sys.stdout))
-    study_name = "cnn-hypertune"  # Unique identifier of the study.
-    storage_name = "sqlite:///{}.db".format(study_name)
+    #optuna.logging.get_logger("optuna").addHandler(logging.StreamHandler(sys.stdout))
+     # Unique identifier of the study.
+    #storage_name = "sqlite:///{}.db".format(study_name)
+    storage_name = "sqlite:///cnn-hypertune.db".format(study_name)
  
-    study = optuna.create_study(study_name=study_name, direction="minimize", pruner=pruner, load_if_exists=True,storage=storage_name) #storage="sqlite:///myfirstoptimizationstudy.db"
+    study = optuna.create_study(study_name=study_name, direction="minimize", pruner=None, load_if_exists=True,storage=storage_name) #storage="sqlite:///myfirstoptimizationstudy.db"
     study.optimize(objective, n_trials=n_trials, timeout=timeout)
 
     print("Number of finished trials: {}".format(len(study.trials)))
@@ -268,11 +297,11 @@ if __name__ == "__main__":
     import logging
     import sys
 
-    trial = HyperTune()
+    trial = HyperTune(study_name="cnn-hypertune-last-of-today-30-03",n_trials=1000,timeout=60*60*16)
 
   
     # Save trial as pickle
-    with open('cnn-tune-29-03.pickle', 'wb') as f:
+    with open('cnn-hypertune-last-of-today-30-03.pickle', 'wb') as f:
         pickle.dump(trial, f)
   
     
