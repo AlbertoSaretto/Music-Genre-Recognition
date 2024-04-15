@@ -5,8 +5,9 @@ import librosa
 import warnings
 import h5py
 import os
-from mgr.utils_mgr import getAudio
+from mgr.utils_mgr import getAudio, RandomApply
 from sklearn import preprocessing
+
 
 
 
@@ -105,7 +106,7 @@ class DataAudio(Dataset):
             
             if self.type=="1D":
                  # Audiogmentations library requires to specify the sample rate
-                 x = self.transform(x,44100) # Using 44100, I should make this more robust using sr from previous function
+                 x = self.transform(x, 44100) # Using 44100, I should make this more robust using sr from previous function
             else:
                 x = self.transform(x)
            
@@ -128,7 +129,7 @@ class DataAudioH5(Dataset):
 
         return self.x.len()
 
-    def create_input(self, audio,sr=22050):
+    def create_input(self, audio, sr=22050):
 
         """
         This function takes an audio clip and creates the input for the model

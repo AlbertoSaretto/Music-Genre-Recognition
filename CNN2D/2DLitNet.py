@@ -1,17 +1,45 @@
 from mgr.models import NNET1D, LitNet
-from mgr.utils_mgr import main_train
+from mgr.utils_mgr import main_train, RandomApply
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torchvision.transforms import v2
 from torchaudio.transforms import TimeStretch, FrequencyMasking, TimeMasking
-import audiomentations as audio
 import os
+
+#Housing anywhere case monaco 48 ore per vedere e dire ok sei tutelato, tipo booking
+
+#OPTUNA RESULTS:
+# weight decay: 0.000572
+
+
+#Class to apply random transformations to the data
+class RandomApply:
+    def __init__(self, transform, prob):
+        self.transform = transform
+        self.prob = prob
+
+    def __call__(self, x):
+        if torch.rand(1) < self.prob:
+            return self.transform(x)
+        return x
+    
+class GaussianNoise:
+    def __init__(self, mean=0., std=1.):
+        self.mean = mean
+        self.std = std
+
+    def __call__(self, tensor):
+        #return tensor + absolute value of noise
+        return tensor + torch.abs(torch.randn(tensor.size()) * self.std + self.mean)
+
+
+
 
 # Start by removing stuff that requires an experiment, like Dropout or BatchNorm
 class NNET2D(nn.Module):
         
-    def __init__(self,initialisation="xavier"):
+    def __init__(self, initialisation="xavier"):
         super(NNET2D, self).__init__()
         
         
@@ -75,29 +103,48 @@ class NNET2D(nn.Module):
 
 if __name__ == "__main__":
 
-    transform = v2.Compose([
+    train_transform = v2.Compose([
+        v2.ToTensor(),
+        RandomApply(FrequencyMasking(freq_mask_param=40), prob=0.5),     #Time and Freqeuncy are inverted bacause of the data are transposed
+        RandomApply(TimeMasking(time_mask_param=3), prob=0.5),
+        #Add Gaussian noise on spectrogram with v2
+        RandomApply(GaussianNoise(std = 0.025), prob=0.5),
+    ])
+
+    train_transform2 = v2.Compose([
+        v2.ToTensor(),
+        FrequencyMasking(freq_mask_param=30),     #Time and Freqeuncy are inverted bacause of the data are transposed
+        TimeMasking(time_mask_param=2),
+        #Add Gaussian noise on spectrogram with v2
+        GaussianNoise(std = 0.02),
+    ])
+
+
+    eval_transform = v2.Compose([
         v2.ToTensor(),
     ])
    
     
     config_optimizer = {'lr': 5e-5,
-              'lr_step': 10,
-              'lr_gamma': 0.05,
-              'weight_decay': 0.005,
+              'lr_step': 100,
+              'lr_gamma': 0,
+              'weight_decay': 0.0057,
               }
     
     config_train = {"fast_dev_run":False,
                     'max_epochs': 100,
                     'batch_size': 64,
-                    'num_workers': os.cpu_count(),
+                    'num_workers': 6,
                     'patience': 20,
                     'net_type':'2D',
                     'mfcc': True,
-                    'normalize': True
+                    'normalize': True,
+                    'schedule': False
                     }
 
     main_train(model_net = NNET2D(),
-                transforms=transform,
+                train_transforms=train_transform,
+                eval_transforms= eval_transform,
                 PATH_DATA="../data/", 
                 config_optimizer=config_optimizer,
                 config_train=config_train,
