@@ -10,7 +10,7 @@ from torchmetrics.classification import MulticlassConfusionMatrix, MulticlassF1S
 # A LightningModule defines a full system (ie: a GAN, autoencoder, BERT or a simple Image Classifier).
 class LitNet(pl.LightningModule):
     
-    def __init__(self, model_net, optimizer = None, config_optimizer = None):
+    def __init__(self, model_net, optimizer = None, config_optimizer = None, schedule = False):
        
         super().__init__()
         
@@ -79,13 +79,20 @@ class LitNet(pl.LightningModule):
         if optimizer is None:
                 print("Using default optimizer parameters")
                 self.optimizer = Adam(self.net.parameters(), lr = 1e-5)
-        else: 
+        else:
+            
+            print("Using optimizer passed as argument")
             self.optimizer = optimizer
 
         try:
+            self.schedule = schedule
             self.lr_step = config_optimizer["lr_step"]
             self.lr_gamma = config_optimizer["lr_gamma"]
+
+            print("Using lr_step and lr_gamma from config_optimizer")
+
         except:
+            self.schedule = False
             self.lr_step = 1
             self.lr_gamma = 0.0
 
@@ -195,7 +202,16 @@ class LitNet(pl.LightningModule):
 
         scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=self.lr_step, gamma=self.lr_gamma)
 
-        return {"optimizer": self.optimizer, "lr_scheduler": scheduler}
+        #print("Using StepLR with step_size = {} and gamma = {}".format(self.lr_step, self.lr_gamma))
+
+        if self.schedule:
+            print("Using scheduler")
+            return {'optimizer': self.optimizer, 'lr_scheduler': scheduler}
+            
+        else:
+            print("Not using scheduler")   
+            return self.optimizer
+
 
 
 

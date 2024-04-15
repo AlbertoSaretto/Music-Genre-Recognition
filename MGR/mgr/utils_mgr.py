@@ -295,15 +295,15 @@ def display_mel(idx, n_samples, n_fft, n_mels, time_bin, sr_i=None, PATH_DATA="d
 
     return 0
 
-def create_dataloaders(PATH_DATA="data/",transforms=None,batch_size=64,num_workers=os.cpu_count(),net_type='1D', mfcc=False, normalize=False):
+def create_dataloaders(PATH_DATA="data/",transforms=None,batch_size=64,num_workers=os.cpu_count(),net_type='1D', mfcc=False, normalize=False, train_transforms=None, eval_transforms=None):
     from mgr.datasets import DataAudio
     from torch.utils.data import DataLoader
     
     train_set, val_set, test_set = import_and_preprocess_data(PATH_DATA)
 
-    train_dataset  = DataAudio(train_set, transform = transforms, PATH_DATA=PATH_DATA, net_type=net_type, mfcc=mfcc, normalize=normalize)
-    val_dataset    = DataAudio(val_set, transform = transforms, PATH_DATA=PATH_DATA, net_type=net_type, mfcc=mfcc, normalize=normalize)
-    test_dataset   = DataAudio(test_set, transform = transforms, PATH_DATA=PATH_DATA, net_type=net_type, test = True, mfcc=mfcc, normalize=normalize)
+    train_dataset  = DataAudio(train_set, transform = train_transforms, PATH_DATA=PATH_DATA, net_type=net_type, mfcc=mfcc, normalize=normalize)
+    val_dataset    = DataAudio(val_set, transform = eval_transforms, PATH_DATA=PATH_DATA, net_type=net_type, mfcc=mfcc, normalize=normalize)
+    test_dataset   = DataAudio(test_set, transform = eval_transforms, PATH_DATA=PATH_DATA, net_type=net_type, test = True, mfcc=mfcc, normalize=normalize)
 
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
     val_dataloader   = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
@@ -363,7 +363,9 @@ def main_train(model_net,
                config_optimizer= None,
                config_train = None,
                PATH_DATA = "data/",
-               transforms=None,):
+    
+               train_transforms=None,
+               eval_transforms=None,):
     
     import pytorch_lightning as pl
     from mgr.models import LitNet
@@ -406,7 +408,7 @@ def main_train(model_net,
         fast_dev_run=config_train['fast_dev_run'],
     )
 
-    model = LitNet(model_net, optimizer = optimizer, config_optimizer = config_optimizer)
+    model = LitNet(model_net, optimizer = optimizer, config_optimizer = config_optimizer, schedule = config_train['schedule'])
 
 
     # Load model weights from checkpoint
@@ -414,11 +416,26 @@ def main_train(model_net,
     #checkpoint = torch.load(CKPT_PATH)
     #model.load_state_dict(checkpoint['state_dict'])
 
+    
 
-    train_dataloader, val_dataloader, test_dataloader = create_dataloaders(PATH_DATA=PATH_DATA, transforms=transforms, net_type=config_train['net_type'], batch_size = config_train['batch_size'], num_workers = config_train['num_workers'], mfcc = config_train['mfcc'], normalize = config_train['normalize'])
+
+    train_dataloader,  val_dataloader, test_dataloader  = create_dataloaders(PATH_DATA=PATH_DATA, train_transforms=train_transforms, eval_transforms=eval_transforms,net_type=config_train['net_type'], batch_size = config_train['batch_size'], num_workers = config_train['num_workers'], mfcc = config_train['mfcc'], normalize = config_train['normalize'])
+    
 
     trainer.fit(model, train_dataloader, val_dataloader)
-    #trainer.test(model=model,dataloaders=test_dataloader,verbose=True)
+    trainer.test(model=model,dataloaders=test_dataloader,verbose=True)
 
 
     return model
+
+
+#Class to apply random transformations to the data
+class RandomApply:
+    def __init__(self, transform, prob):
+        self.transform = transform
+        self.prob = prob
+
+    def __call__(self, x):
+        if torch.rand(1) < self.prob:
+            return self.transform(x)
+        return x
