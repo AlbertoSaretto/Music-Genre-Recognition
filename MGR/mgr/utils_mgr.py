@@ -160,21 +160,7 @@ def clip_mel(a, n_samples):
     return a_clip[1:]
 
 
-def clip_audio(df, n_samples):
-    data_clip = np.array([0,0])
-    for j in tqdm(range(len(df)), desc="Processing clips"):
-        full = df[j, 0]
-        n=0
-        #while (n<(len(full)-n_samples)) and n<4096:
-        while (n<(len(full)-n_samples)):
-            clip = full[n: (n+n_samples)]
-            y = df[j, 1]
-            new_row = np.array([clip[np.newaxis,:], y], dtype=object)
-            data_clip = np.vstack([data_clip, new_row])
-            n+=int(n_samples/2)
-            
-           
-    return data_clip[1:]
+
    
 
 def pca_transform(clips, n_components=0.99):
@@ -210,41 +196,6 @@ def pca_transform(clips, n_components=0.99):
 
     return clips
 
-def mean_2D_mel(dataset):
-    
-    print("getting stft")
-    stft = get_stft(dataset)
-   
-    del dataset
-    gc.collect()
-
-    # take each song and splits it into clips of n_samples 
-    # creates 
-    print("making clips")
-    clip = clip_mel(stft, 128)
-    print("making clips")
-    
-    print("stacking")
-    stacked = np.stack(clip[:,0],axis=0)
-    mean = np.mean(stacked,axis=(0,1,2))
-    std = np.std(stacked,axis=(0,1,2))
-
-    return mean,std
-
-def mean_1D(dataset):
-
-    # take each song and splits it into clips of n_samples 
-    # creates 
-    print("making clips")
-    clip = clip_audio(dataset, 2**18)
-    print("making clips")
-    
-    print("stacking")
-    stacked = np.stack(clip[:,0],axis=0)
-    mean = np.mean(stacked,axis=(0,1,2))
-    std = np.std(stacked,axis=(0,1,2))
-    
-    return mean,std
 
 
 def import_and_preprocess_data(PATH_DATA="../data/"):
@@ -296,14 +247,23 @@ def display_mel(idx, n_samples, n_fft, n_mels, time_bin, sr_i=None, PATH_DATA="d
     return 0
 
 def create_dataloaders(PATH_DATA="data/",transforms=None,batch_size=64,num_workers=os.cpu_count(),net_type='1D', mfcc=False, normalize=False, train_transforms=None, eval_transforms=None):
-    from mgr.datasets import DataAudio
+  
+    from mgr.datasets import DataAudio, DataAudioMix
     from torch.utils.data import DataLoader
     
     train_set, val_set, test_set = import_and_preprocess_data(PATH_DATA)
 
-    train_dataset  = DataAudio(train_set, transform = train_transforms, PATH_DATA=PATH_DATA, net_type=net_type, mfcc=mfcc, normalize=normalize)
-    val_dataset    = DataAudio(val_set, transform = eval_transforms, PATH_DATA=PATH_DATA, net_type=net_type, mfcc=mfcc, normalize=normalize)
-    test_dataset   = DataAudio(test_set, transform = eval_transforms, PATH_DATA=PATH_DATA, net_type=net_type, test = True, mfcc=mfcc, normalize=normalize)
+    if net_type == '1D' or net_type == '2D':
+        train_dataset  = DataAudio(train_set, transform = train_transforms, PATH_DATA=PATH_DATA, net_type=net_type, mfcc=mfcc, normalize=normalize)
+        val_dataset    = DataAudio(val_set, transform = eval_transforms, PATH_DATA=PATH_DATA, net_type=net_type, mfcc=mfcc, normalize=normalize)
+        test_dataset   = DataAudio(test_set, transform = eval_transforms, PATH_DATA=PATH_DATA, net_type=net_type, test = True, mfcc=mfcc, normalize=normalize)
+
+    elif net_type == 'Mix':
+        train_dataset  = DataAudioMix(train_set, transform = train_transforms, PATH_DATA=PATH_DATA, net_type='1D', mfcc=mfcc, normalize=normalize)
+        val_dataset    = DataAudioMix(val_set, transform = eval_transforms, PATH_DATA=PATH_DATA, net_type='1D', mfcc=mfcc, normalize=normalize)
+        test_dataset   = DataAudioMix(test_set, transform = eval_transforms, PATH_DATA=PATH_DATA, net_type='1D', test = True, mfcc=mfcc, normalize=normalize)  
+
+
 
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
     val_dataloader   = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
@@ -316,45 +276,6 @@ compute_CM_terms and compute_metrics are used to compute the confusion matrix an
 
 """
 
-def compute_CM_terms(out_net, label_batch):
-    import torch
-    import torch.nn.functional as F
-    
-    '''
-
-    TO DO: CHECK IF SKLEARN METRICS ARE THE SAME
-
-    Function to compute terms for the evaluation of confusion matrix and different metrics:
-
-    TP: True Positive, the cases in which we predicted YES and the actual output was also YES.
-    FP: False Positive, the cases in which we predicted YES and the actual output was NO.
-    TN: True Negative, the cases in which we predicted NO and the actual output was also NO.
-    FN: False Negative, the cases in which we predicted NO and the actual output was YES.
-    '''
-
-    out_pred = out_net.argmax(dim=1)
-    out_pred_bool = F.one_hot(out_pred, num_classes=8).bool()
-    
-    # logical_and is element wise 'and', zeros element are always false
-    # 0 == 0 -> False
-    TP = torch.logical_and(out_pred_bool, label_batch).sum(dim=0)
-    FP = torch.logical_and(out_pred_bool, ~label_batch).sum(dim=0)
-    TN = torch.logical_and(~out_pred_bool, ~label_batch).sum(dim=0)
-    FN = torch.logical_and(~out_pred_bool, label_batch).sum(dim=0)
-    
-    
-    return TP, FP, TN, FN
-
-def compute_metrics(out_net, label_batch):
-    TP, FP, TN, FN = compute_CM_terms(out_net, label_batch)
-
-    # Compute metrics
-    accuracy = (TP + TN) / (TP + FP + TN + FN)
-    precision = TP / (TP + FP)
-    recall = TP / (TP + FN)
-    f1 = 2 * (precision * recall) / (precision + recall)
-
-    return accuracy, precision, recall, f1
 
 
 #Function for main training of the network
