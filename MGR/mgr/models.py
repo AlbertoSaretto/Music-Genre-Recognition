@@ -198,53 +198,62 @@ class LitNet(pl.LightningModule):
         return {"optimizer": self.optimizer, "lr_scheduler": scheduler}
 
 
-
+# Adding BatchNorm to avoid overfitting
+# This is the best NNET1D found so far
+# Batch Norm but no dropout
 class NNET1D(nn.Module):
         
     def __init__(self):
-        super(NNET1D, self).__init__()
+        super(NNET1D_BN, self).__init__()
         
         
         self.c1 = nn.Sequential(
-            nn.Conv1d(in_channels=1, out_channels=16, kernel_size=128, stride=32, padding=64),
-            nn.BatchNorm1d(16),
+            nn.Conv1d(in_channels=1, out_channels=64, kernel_size=128, stride=32, padding=64),
+            nn.BatchNorm1d(64),
             nn.ReLU(inplace = True),
             nn.MaxPool1d(kernel_size=4, stride=4),
-            nn.Dropout(p=0.2),
+          
         )
+        
 
         self.c2 = nn.Sequential(
-            nn.Conv1d(in_channels=16, out_channels=32, kernel_size=32, stride=2, padding=16),
-            nn.BatchNorm1d(32),
+            nn.Conv1d(in_channels=64, out_channels=128, kernel_size=32, stride=2, padding=16),
+            nn.BatchNorm1d(128),
             nn.ReLU(inplace = True),
             nn.MaxPool1d(kernel_size=2, stride=2),
-            nn.Dropout(p=0.2)
+          
         )
 
         self.c3 = nn.Sequential(
-            nn.Conv1d(in_channels=32, out_channels=64, kernel_size=16, stride=2, padding=8),
-            nn.BatchNorm1d(64),
+            nn.Conv1d(in_channels=128, out_channels=256, kernel_size=16, stride=2, padding=8),
+            nn.BatchNorm1d(256),
             nn.ReLU(inplace = True),
             nn.MaxPool1d(kernel_size=2, stride=2),
-            nn.Dropout(p=0.2)
+         
         )
         
         #Trying to add 4th convolutional block
         self.c4 = nn.Sequential(
-            nn.Conv1d(in_channels=64, out_channels=128, kernel_size=8,stride=2, padding=4),
-            nn.BatchNorm1d(128),
+            nn.Conv1d(in_channels=256, out_channels=512, kernel_size=8,stride=2, padding=4),
+            nn.BatchNorm1d(512),
             nn.ReLU(inplace = True),
-            nn.Dropout(p=0.2)
+           
         )
         
 
         self.fc = nn.Sequential(
-            nn.Linear(256, 128), 
+            nn.Linear(1024, 512), 
             nn.ReLU(inplace = True),
-            nn.Dropout(p=0.2),
+
+            nn.Linear(512, 128),
+            nn.ReLU(inplace = True),
+
+            nn.Linear(128,128),
+            nn.ReLU(inplace = True),
+            
             nn.Linear(128, 64),
             nn.ReLU(inplace = True),
-            nn.Dropout(p=0.2),
+           
             nn.Linear(64, 8),
             nn.Softmax(dim=1)
         )
@@ -284,6 +293,7 @@ class NNET1D(nn.Module):
 
         x = self.fc(x)
         return x 
+
 
 
 class NNET2D(nn.Module):
