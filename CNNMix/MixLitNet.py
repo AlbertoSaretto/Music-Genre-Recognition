@@ -1,5 +1,5 @@
-from mgr.models import NNET1D, LitNet
-from mgr.utils_mgr import main_train, RandomApply
+from mgr.models import NNET1D, NNET2D, LitNet
+from mgr.utils_mgr import main_train
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -76,13 +76,13 @@ class MixNet(nn.Module):
         max_pool = F.max_pool2d(conv2d, kernel_size=(125,1))
         avg_pool = F.avg_pool2d(conv2d, kernel_size=(125,1))
         cat2d = torch.cat([max_pool,avg_pool],dim=1)
-        cat2d = cat2d.view(cat2d.size(0), -1) # cat2d shape torch.Size([1, 512])
+        cat2d =torch.flatten(cat2d, start_dim=1) # cat2d shape torch.Size([1, 512])
         
         conv1d = self.conv_block1D(audio)
         max_pool = F.max_pool1d(conv1d, kernel_size=64)
         avg_pool = F.avg_pool1d(conv1d, kernel_size=64)
         cat1d = torch.cat([max_pool,avg_pool],dim=1)
-        cat1d = torch.flatten(x, start_dim=1)   #un po diverso da cat2d.. dare un'occhiata se da problemi
+        cat1d = torch.flatten(cat1d, start_dim=1)   #un po diverso da cat2d.. dare un'occhiata se da problemi
 
         # Concatanate the two outputs and pass it to the classifier
         # cat1d dim = torch.Size([batch_size, 2048])
@@ -111,8 +111,6 @@ def build_convolutional_blocks(nnet1d, nnet2d):
 
 
     return conv_block1D, conv_block2D
-
-
 
 
 
@@ -147,19 +145,31 @@ if __name__ == "__main__":
 
 
     # Load model weights from checkpoint
-    CKPT_PATH_1D = "../CNN1D/lightning_logs/full_train_BN_transoform/checkpoints/epoch=39-step=16000.ckpt"
-    CKPT_PATH_2D = "../CNN2D/lightning_logs/all_trans5_chapion/cehckpoints/epoch=75-step=7600.ckpt"
-    nnet1d = LitNet.load_from_checkpoint(checkpoint_path=CKPT_PATH_1D).eval()
-    nnet2d = LitNet.load_from_checkpoint(checkpoint_path=CKPT_PATH_2D).eval()
 
-    """    # Freeze the weights
+    CKPT_PATH_1D = "../CNN1D/lightning_logs/full_train_BN_transform/checkpoints/epoch=39-step=16000.ckpt"
+    CKPT_PATH_2D = "../CNN2D/lightning_logs/all_trans5_champion/checkpoints/epoch=75-step=7600.ckpt"
+    
+    print("Loading models...")
+
+    weights1D = torch.load(CKPT_PATH_1D)['state_dict']
+    weights2D = torch.load(CKPT_PATH_2D,map_location=torch.device('cpu'))['state_dict']
+    nnet1d = LitNet(NNET1D())
+    nnet2d = LitNet(NNET2D())
+
+    nnet1d.load_state_dict(weights1D)
+    nnet2d.load_state_dict(weights2D)
+   
+    #nnet1d = LitNet.load_from_checkpoint(checkpoint_path=CKPT_PATH_1D).eval()
+    #nnet2d = LitNet.load_from_checkpoint(checkpoint_path=CKPT_PATH_2D).eval()
+
+    """    # Freeze the weights if you don't want to train the CNN part
     for param in nnet1d.parameters():
         param.requires_grad = False
         
     for param in nnet2d.parameters():
         param.requires_grad = False
     """
-
+    print("Models loaded.")
     # Build convolutional blocks
     conv_block1D, conv_block2D = build_convolutional_blocks(nnet1d, nnet2d)
 
