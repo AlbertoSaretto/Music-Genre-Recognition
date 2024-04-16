@@ -66,10 +66,14 @@ class LitNet(pl.LightningModule):
         self.f1_score_val   = MulticlassF1Score(num_classes=8, average='macro')
         self.f1_score_test  = MulticlassF1Score(num_classes=8, average='macro')
 
-        self.top2_accuracy_train = torcheval.metrics.MulticlassAccuracy(num_classes=8, k=2)
-        self.top2_accuracy_val = torcheval.metrics.MulticlassAccuracy(num_classes=8, k=2)
-        self.top2_accuracy_test = torcheval.metrics.MulticlassAccuracy(num_classes=8, k=2)
+
+        """
+        self.top2_accuracy_train = MulticlassAccuracy(num_classes=8, k=2)
+        self.top2_accuracy_val = MulticlassAccuracy(num_classes=8, k=2)
+        self.top2_accuracy_test = MulticlassAccuracy(num_classes=8, k=2)
+
         
+        """
 
        
     # If no optimizer is passed, the default optimizer is Adam
@@ -224,8 +228,6 @@ class LitNet(pl.LightningModule):
 
 
 # Adding BatchNorm to avoid overfitting
-# This is the best NNET1D found so far
-# Batch Norm but no dropout
 class NNET1D(nn.Module):
         
     def __init__(self):
@@ -390,6 +392,8 @@ class NNET2D(nn.Module):
 
 
 
+
+
 class MixNet(nn.Module):
     def __init__(self, conv_block1D, conv_block2D):
         super(MixNet, self).__init__()
@@ -423,7 +427,7 @@ class MixNet(nn.Module):
 
     def forward(self, x):
         audio = x[0]
-        spectrogram   = x[1]
+        spectrogram = x[1]
         
         conv2d = self.conv_block2D(spectrogram)
         max_pool = F.max_pool2d(conv2d, kernel_size=(125,1))
@@ -441,202 +445,5 @@ class MixNet(nn.Module):
         # cat1d dim = torch.Size([batch_size, 2048])
         # cat2d dim = torch.Size([batch_size, 512])
         x = torch.cat([cat1d, cat2d], dim=1) 
-        x = self.dropout(x)  # Add dropout layer
         x = self.classifier(x)
         return x
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-'''
-class Encoder(nn.Module):
-
-    
-    def __init__(self, encoded_space_dim):
-        super().__init__()
-        
-        ### Convolutional section
-        self.encoder_cnn = nn.Sequential(
-            # First convolutional layer
-            nn.Conv2d(in_channels=1, out_channels=8, kernel_size=3, 
-                      stride=2, padding=1),
-            nn.ReLU(True),
-            nn.BatchNorm2d(8),
-            nn.Dropout2d(0.2),
-            # Second convolutional layer
-            nn.Conv2d(in_channels=8, out_channels=16, kernel_size=3, 
-                      stride=2, padding=1),
-            nn.ReLU(True),
-            nn.BatchNorm2d(16),
-            nn.Dropout2d(0.2),
-            # Third convolutional layer
-            nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3, 
-                      stride=2, padding=0),
-            nn.ReLU(True),
-            nn.BatchNorm2d(32),
-            nn.Dropout2d(0.2),
-        )
-        
-        ### Flatten layer
-        self.flatten = nn.Flatten(start_dim=1)
-
-        ### Linear section
-        self.encoder_lin = nn.Sequential(
-            # First linear layer
-            nn.Linear(in_features= 32, out_features=64),
-            nn.ReLU(True),
-            # Second linear layer
-            nn.Linear(in_features=64, out_features=encoded_space_dim),
-            nn.ReLU(True),
-        )
-        
-
-        self._initialize_weights()
-
-    def _initialize_weights(self):
-        for module in self.modules():
-            if isinstance(module, nn.Conv2d) or isinstance(module, nn.ConvTranspose2d):
-                init.xavier_uniform_(module.weight)
-                if module.bias is not None:
-                    init.constant_(module.bias, 1)
-            elif isinstance(module, nn.Linear):
-                init.xavier_uniform_(module.weight)
-                if module.bias is not None:
-                    init.constant_(module.bias, 1)
-    def forward(self, x):
-        # Apply convolutions
-        x = self.encoder_cnn(x)
-        #print("encoder shape",x.shape)
-        """
-        This avg pool may be too aggressive.
-        """
-        x = F.avg_pool2d(x, kernel_size=x.size()[2:])
-        #print("maxpool shape",x.shape)
-        # Flatten
-        x = self.flatten(x)
-        #print("flatten shape",x.shape)
-        # # Apply linear layers
-        x = self.encoder_lin(x)
-        return x
-    
-
-class Decoder(nn.Module):
-    
-    def __init__(self, encoded_space_dim):
-        super().__init__()
-
-        ### Linear section
-        self.decoder_lin = nn.Sequential(
-            # First linear layer
-            nn.Linear(in_features=encoded_space_dim, out_features=64),
-            nn.ReLU(True),
-            # Second linear layer
-            nn.Linear(in_features=64, out_features= 32),
-            nn.ReLU(True),
-        )
-
-        ### Unflatten
-        self.unflatten = nn.Unflatten(dim=1, unflattened_size=(32, 1, 1))
-
-        ### Convolutional section
-        self.decoder_conv = nn.Sequential(
-            # First transposed convolution
-            nn.ConvTranspose2d(in_channels=32, out_channels=16, kernel_size=3, 
-                               stride=2, output_padding=(1,0)),
-            nn.ReLU(True),
-            nn.BatchNorm2d(16),
-            nn.Dropout2d(0.2),
-           
-            # Second transposed convolution
-            nn.ConvTranspose2d(in_channels=16, out_channels=8, kernel_size=3, 
-                               stride=2, padding=1, output_padding=(1,0)),
-            nn.ReLU(True),
-            nn.BatchNorm2d(8),
-            nn.Dropout2d(0.2),
-           
-            # Third transposed convolution
-            nn.ConvTranspose2d(in_channels=8, out_channels=1, kernel_size=3, 
-                               stride=2, padding=1, output_padding=(1,0)),
-            nn.ReLU(True),
-            nn.BatchNorm2d(1),
-            nn.Dropout2d(0.2),
-           
-        )
-        self._initialize_weights()
-
-    def _initialize_weights(self):
-        for module in self.modules():
-            if isinstance(module, nn.Conv2d) or isinstance(module, nn.ConvTranspose2d):
-                init.xavier_uniform_(module.weight)
-                if module.bias is not None:
-                    init.constant_(module.bias, 1)
-            elif isinstance(module, nn.Linear):
-                init.xavier_uniform_(module.weight)
-                if module.bias is not None:
-                    init.constant_(module.bias, 1)
-    
-
-    def forward(self, x):
-        #print("input of decoder",x.shape)
-        # Apply linear layers
-        x = self.decoder_lin(x)
-        #print("decoder linear out",x.shape)
-        # Unflatten
-        x = self.unflatten(x)
-        #print("unflattened shape",x.shape)
-        
-        # Apply upsampling
-        x = F.interpolate(x, size=(15,64), mode='nearest')
-        #print("interpolate out shape",x.shape)
-        # Apply transposed convolutions
-        x = self.decoder_conv(x)
-        #print("decoder conv out",x.shape)   
-        # Apply a sigmoid to force the output to be between 0 and 1 (valid pixel values)
-        x = torch.sigmoid(x)
-        return x
-    
-class Autoencoder(nn.Module):
-        
-        def __init__(self, encoded_space_dim=64):
-            super().__init__()
-            self.encoder = Encoder(encoded_space_dim)
-            self.decoder = Decoder(encoded_space_dim)
-            
-            self._initialize_weights()
-
-        def _initialize_weights(self):
-            for module in self.modules():
-                if isinstance(module, nn.Conv2d) or isinstance(module, nn.ConvTranspose2d):
-                    init.xavier_uniform_(module.weight)
-                    if module.bias is not None:
-                        init.constant_(module.bias, 1)
-                elif isinstance(module, nn.Linear):
-                    init.xavier_uniform_(module.weight)
-                    if module.bias is not None:
-                        init.constant_(module.bias, 1)
-                
-        def forward(self, x):
-            #print("very input shape",x.shape)
-            x = self.encoder(x)
-            x = self.decoder(x)
-            return x
-'''
