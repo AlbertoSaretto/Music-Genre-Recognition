@@ -259,9 +259,9 @@ def create_dataloaders(PATH_DATA="data/",transforms=None,batch_size=64,num_worke
         test_dataset   = DataAudio(test_set, transform = eval_transforms, PATH_DATA=PATH_DATA, net_type=net_type, test = True, mfcc=mfcc, normalize=normalize)
 
     elif net_type == 'Mix':
-        train_dataset  = DataAudioMix(train_set, transform = train_transforms, PATH_DATA=PATH_DATA, net_type='1D', mfcc=mfcc, normalize=normalize)
-        val_dataset    = DataAudioMix(val_set, transform = eval_transforms, PATH_DATA=PATH_DATA, net_type='1D', mfcc=mfcc, normalize=normalize)
-        test_dataset   = DataAudioMix(test_set, transform = eval_transforms, PATH_DATA=PATH_DATA, net_type='1D', test = True, mfcc=mfcc, normalize=normalize)  
+        train_dataset  = DataAudioMix(train_set, transform = train_transforms, PATH_DATA=PATH_DATA, mfcc=mfcc, normalize=normalize)
+        val_dataset    = DataAudioMix(val_set, transform = eval_transforms, PATH_DATA=PATH_DATA, mfcc=mfcc, normalize=normalize)
+        test_dataset   = DataAudioMix(test_set, transform = eval_transforms, PATH_DATA=PATH_DATA, test = True, mfcc=mfcc, normalize=normalize)  
 
 
 
