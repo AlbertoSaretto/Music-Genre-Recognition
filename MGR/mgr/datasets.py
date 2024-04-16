@@ -82,7 +82,7 @@ class DataAudio(Dataset):
 
                     return spect
             
-            return audio[np.newaxis,:]
+            return audio[np.newaxis,:]   # FUNZIONA ANCHE CON SOLO AUDIO E TOTENSOR????
         
             
 

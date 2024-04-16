@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from torch.optim import Adam
 import pytorch_lightning as pl
 from torchmetrics.classification import MulticlassConfusionMatrix, MulticlassF1Score, MulticlassAccuracy
-
+import torcheval.metrics
 
 # Define a general LightningModule (nn.Module subclass)
 # A LightningModule defines a full system (ie: a GAN, autoencoder, BERT or a simple Image Classifier).
@@ -66,10 +66,12 @@ class LitNet(pl.LightningModule):
         self.f1_score_val   = MulticlassF1Score(num_classes=8, average='macro')
         self.f1_score_test  = MulticlassF1Score(num_classes=8, average='macro')
 
+
         """
         self.top2_accuracy_train = MulticlassAccuracy(num_classes=8, k=2)
         self.top2_accuracy_val = MulticlassAccuracy(num_classes=8, k=2)
         self.top2_accuracy_test = MulticlassAccuracy(num_classes=8, k=2)
+
         
         """
 
