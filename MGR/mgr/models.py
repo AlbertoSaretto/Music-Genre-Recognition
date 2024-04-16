@@ -129,7 +129,7 @@ class LitNet(pl.LightningModule):
         self.log("train_loss", loss.item(), prog_bar=True,on_step=False,on_epoch=True)
         self.log("train_acc", self.accuracy_train(out_argmax, label_argmax), prog_bar=True,on_step=False,on_epoch=True)
         self.log("train_f1_score",self.f1_score_train(out_argmax, label_argmax), prog_bar=True,on_step=False,on_epoch=True)
-        self.log("train_top2_acc",self.top2_accuracy_train(out_argmax, label_argmax), prog_bar=True,on_step=False,on_epoch=True)
+        #self.log("train_top2_acc",self.top2_accuracy_train(out_argmax, label_argmax), prog_bar=True,on_step=False,on_epoch=True)
         self.confusion_matrix_train.update(out_argmax, label_argmax)
         
         return loss
@@ -163,7 +163,7 @@ class LitNet(pl.LightningModule):
         self.log("val_loss", loss.item(), prog_bar=True,on_step=False,on_epoch=True)
         self.log("val_acc", self.accuracy_val(out_argmax, label_argmax), prog_bar=True,on_step=False,on_epoch=True)
         self.log("val_f1_score",self.f1_score_val(out_argmax, label_argmax), prog_bar=True,on_step=False,on_epoch=True)
-        self.log("val_top2_acc",self.top2_accuracy_val(out_argmax, label_argmax), prog_bar=True,on_step=False,on_epoch=True)
+        #self.log("val_top2_acc",self.top2_accuracy_val(out_argmax, label_argmax), prog_bar=True,on_step=False,on_epoch=True)
         self.confusion_matrix_val.update(out_argmax, label_argmax)
 
 
@@ -194,7 +194,7 @@ class LitNet(pl.LightningModule):
         self.log("test_loss", loss.item(), prog_bar=True,on_step=False,on_epoch=True)
         self.log("test_acc", self.accuracy_test(out_argmax, label_argmax), prog_bar=True,on_step=False,on_epoch=True)
         self.log("test_f1_score",self.f1_score_test(out_argmax, label_argmax), prog_bar=True,on_step=False,on_epoch=True)
-        self.log("test_top2_acc",self.top2_accuracy_test(out_argmax, label_argmax), prog_bar=True,on_step=False,on_epoch=True)
+        #self.log("test_top2_acc",self.top2_accuracy_test(out_argmax, label_argmax), prog_bar=True,on_step=False,on_epoch=True)
         self.confusion_matrix_test.update(out_argmax, label_argmax)
 
     def on_test_epoch_end(self):
@@ -431,13 +431,13 @@ class MixNet(nn.Module):
         max_pool = F.max_pool2d(conv2d, kernel_size=(125,1))
         avg_pool = F.avg_pool2d(conv2d, kernel_size=(125,1))
         cat2d = torch.cat([max_pool,avg_pool],dim=1)
-        cat2d = cat2d.view(cat2d.size(0), -1) # cat2d shape torch.Size([1, 512])
+        cat2d = cat2d.view(cat2d.size(0), -1)
         
         conv1d = self.conv_block1D(audio)
         max_pool = F.max_pool1d(conv1d, kernel_size=125)
         avg_pool = F.avg_pool1d(conv1d, kernel_size=125)
         cat1d = torch.cat([max_pool,avg_pool],dim=1)
-        cat1d = cat1d.view(cat1d.size(0), -1) # cat1d dim = torch.Size([batch_size, 2048])
+        cat1d = cat1d.view(cat1d.size(0), -1)
 
         # Concatanate the two outputs and pass it to the classifier
         # cat1d dim = torch.Size([batch_size, 2048])
