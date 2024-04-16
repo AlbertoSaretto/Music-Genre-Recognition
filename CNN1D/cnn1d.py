@@ -721,6 +721,9 @@ if __name__ == "__main__":
                     'normalize': False
                     }
  
+
+
+
     main_train(model_net =model_net,
                 train_transforms=train_transform,
                 eval_transforms= eval_transorm,

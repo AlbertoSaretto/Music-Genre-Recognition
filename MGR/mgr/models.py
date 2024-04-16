@@ -66,6 +66,7 @@ class LitNet(pl.LightningModule):
         self.f1_score_val   = MulticlassF1Score(num_classes=8, average='macro')
         self.f1_score_test  = MulticlassF1Score(num_classes=8, average='macro')
 
+
         """
         self.top2_accuracy_train = MulticlassAccuracy(num_classes=8, k=2)
         self.top2_accuracy_val = MulticlassAccuracy(num_classes=8, k=2)
