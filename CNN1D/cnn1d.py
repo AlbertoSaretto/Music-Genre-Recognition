@@ -681,7 +681,7 @@ if __name__ == "__main__":
     # Data augmentation
     import audiomentations as audio
 
-    transform = audio.Compose([   
+    train_transform = audio.Compose([   
         # add gaussian noise to the samples
         audio.AddGaussianNoise(min_amplitude=0.001, max_amplitude=0.015, p=0.5),
         # change the speed or duration of the signal without changing the pitch
@@ -691,6 +691,10 @@ if __name__ == "__main__":
         # adds silence
         audio.TimeMask(min_band_part=0.1, max_band_part=0.15, fade=True, p=1.0)
     ])
+
+
+    
+    eval_transorm = None
 
     # This gets updated by the hyperparameter optimization
     config_optimizer = {'lr': 1e-4,
@@ -717,8 +721,11 @@ if __name__ == "__main__":
                     'normalize': False
                     }
  
-    main_train(model_net= model_net,
-                transforms=transform,
+
+    main_train(model_net =model_net,
+                train_transforms=train_transform,
+                eval_transforms= eval_transorm,
+
                 PATH_DATA="../data/", 
                 config_optimizer=config_optimizer,
                 config_train=config_train,

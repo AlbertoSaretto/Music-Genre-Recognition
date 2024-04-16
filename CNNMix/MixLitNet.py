@@ -77,12 +77,14 @@ class MixNet(nn.Module):
         avg_pool = F.avg_pool2d(conv2d, kernel_size=(125,1))
         cat2d = torch.cat([max_pool,avg_pool],dim=1)
         cat2d =torch.flatten(cat2d, start_dim=1) # cat2d shape torch.Size([1, 512])
+
         
         conv1d = self.conv_block1D(audio)
         max_pool = F.max_pool1d(conv1d, kernel_size=64)
         avg_pool = F.avg_pool1d(conv1d, kernel_size=64)
         cat1d = torch.cat([max_pool,avg_pool],dim=1)
         cat1d = torch.flatten(cat1d, start_dim=1)   #un po diverso da cat2d.. dare un'occhiata se da problemi
+
 
         # Concatanate the two outputs and pass it to the classifier
         # cat1d dim = torch.Size([batch_size, 2048])
@@ -94,7 +96,7 @@ class MixNet(nn.Module):
  
 
 
-#E il  modo più semplice e pulito per farlo? Pare di si senza ridefinire tutto...
+#E il  modo più semplice e pulito per farlo? Pare di si senza ridefinire tutto... CONTROLLA
 def build_convolutional_blocks(nnet1d, nnet2d):
     
     # Get all convolutional layers from nnet2d
@@ -145,6 +147,8 @@ if __name__ == "__main__":
 
 
     # Load model weights from checkpoint
+
+
 
     CKPT_PATH_1D = "../CNN1D/lightning_logs/full_train_BN_transform/checkpoints/epoch=39-step=16000.ckpt"
     CKPT_PATH_2D = "../CNN2D/lightning_logs/all_trans5_champion/checkpoints/epoch=75-step=7600.ckpt"
