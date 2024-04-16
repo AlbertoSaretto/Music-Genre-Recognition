@@ -72,25 +72,22 @@ class MixNet(nn.Module):
         audio = x[0]
         spectrogram   = x[1]
         
+        # 2D BLOCK
         conv2d = self.conv_block2D(spectrogram)
         max_pool = F.max_pool2d(conv2d, kernel_size=(125,1))
         avg_pool = F.avg_pool2d(conv2d, kernel_size=(125,1))
         cat2d = torch.cat([max_pool,avg_pool],dim=1)
-        cat2d =torch.flatten(cat2d, start_dim=1) # cat2d shape torch.Size([1, 512])
-
+        cat2d = torch.flatten(cat2d, start_dim=1)
         
+        # 1D BLOCK
         conv1d = self.conv_block1D(audio)
         max_pool = F.max_pool1d(conv1d, kernel_size=64)
         avg_pool = F.avg_pool1d(conv1d, kernel_size=64)
         cat1d = torch.cat([max_pool,avg_pool],dim=1)
-        cat1d = torch.flatten(cat1d, start_dim=1)   #un po diverso da cat2d.. dare un'occhiata se da problemi
-
-
-        # Concatanate the two outputs and pass it to the classifier
-        # cat1d dim = torch.Size([batch_size, 2048])
-        # cat2d dim = torch.Size([batch_size, 512])
+        cat1d = torch.flatten(cat1d, start_dim=1) 
+        
+        # Concatanate the two outputs
         x = torch.cat([cat1d, cat2d], dim=1) 
-        x = self.dropout(x)  # Add dropout layer
         x = self.classifier(x)
         return x
  
@@ -106,10 +103,10 @@ def build_convolutional_blocks(nnet1d, nnet2d):
     conv_block2D = nn.Sequential(*conv_layers_2d[:9]) # [:9] to remove redundat ReLU layers taken by mistake from fc layers
         
     # Get all convolutional layers from nnet1d
-    conv_layers_1d = [layer for layer in nnet1d.modules() if isinstance(layer, nn.Conv1d) or isinstance(layer, nn.BatchNorm1d) or isinstance(layer, nn.ReLU)]
+    conv_layers_1d = [layer for layer in nnet1d.modules() if isinstance(layer, nn.Conv1d) or isinstance(layer, nn.BatchNorm1d) or isinstance(layer, nn.ReLU) or isinstance(layer, nn.MaxPool1d)]
 
     # Build a new convolutional layer
-    conv_block1D = nn.Sequential(*conv_layers_1d[:12])
+    conv_block1D = nn.Sequential(*conv_layers_1d[:15])
 
 
     return conv_block1D, conv_block2D
