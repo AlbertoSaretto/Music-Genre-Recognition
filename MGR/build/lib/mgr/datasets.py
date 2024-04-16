@@ -78,6 +78,87 @@ class DataAudio(Dataset):
                     return mfcc
 
 
+        if self.transform:
+            
+            if self.type=="1D":
+                 # Audiogmentations library requires to specify the sample rate
+                 x = self.transform(x,44100) # Using 44100, I should make this more robust using sr from previous function
+            else:
+                x = self.transform(x)
+           
+        return x,y
+
+
+
+
+class DataAudio(Dataset):
+
+    def __init__(self, df, transform = None, PATH_DATA="data/",  net_type = "1D", test = False, mfcc=False, normalize = False):
+        
+        # Get track index
+        self.track_ids = df['index'].values
+
+        #Get genre label
+        self.label = df['labels'].values
+
+        #Transform
+        self.transform = transform
+
+        #Select type of input
+        self.type = net_type
+
+        #Test
+        self.test = test
+
+        #Path to data
+        self.path = PATH_DATA
+
+        #mfcc
+        self.mfcc = mfcc
+
+        #Normalize
+        self.normalize = normalize
+
+    def __len__(self):
+
+        return len(self.track_ids)
+
+
+    def create_input(self, i):
+      
+        # Get audio
+
+        # load audio track
+        #with warnings.catch_warnings():
+        #    warnings.simplefilter('ignore')
+
+        
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            audio, sr = getAudio(self.track_ids[i], PATH_DATA = self.path)
+
+            #If test select clip window starting at half of the audio
+            if(self.test):
+                start = int(audio.shape[0]/2)
+                audio = audio[start:start+2**18]
+
+            else:
+                #Select random clip from audio
+                start = np.random.randint(0, (audio.shape[0]-2**18))
+                audio = audio[start:start+2**18]
+                
+            if(self.type=="2D"):
+                #Get 2D spectrogram
+                stft = np.abs(librosa.stft(audio, n_fft=2048, hop_length=1024))
+                
+                mel = librosa.feature.melspectrogram(sr=sr, S=stft**2, n_mels=128)[:,:256]
+
+                if self.mfcc:
+                    mfcc = librosa.feature.mfcc(S=librosa.power_to_db(mel), n_mfcc=20)
+                    mfcc = mfcc.T
+                    return mfcc
+
+
                 mel = librosa.power_to_db(mel).T         #One possibility is to put here ref=np.max to normalize the data
                 return mel
             

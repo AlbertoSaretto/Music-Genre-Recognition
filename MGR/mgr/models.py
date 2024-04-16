@@ -10,7 +10,7 @@ from torchmetrics.classification import MulticlassConfusionMatrix, MulticlassF1S
 # A LightningModule defines a full system (ie: a GAN, autoencoder, BERT or a simple Image Classifier).
 class LitNet(pl.LightningModule):
     
-    def __init__(self, model_net, optimizer = None, config_optimizer = None):
+    def __init__(self, model_net, optimizer = None, config_optimizer = None, schedule = False):
        
         super().__init__()
         
@@ -65,6 +65,10 @@ class LitNet(pl.LightningModule):
         self.f1_score_train = MulticlassF1Score(num_classes=8, average='macro')
         self.f1_score_val   = MulticlassF1Score(num_classes=8, average='macro')
         self.f1_score_test  = MulticlassF1Score(num_classes=8, average='macro')
+
+        self.top2_accuracy_train = MulticlassAccuracy(num_classes=8, k=2)
+        self.top2_accuracy_val = MulticlassAccuracy(num_classes=8, k=2)
+        self.top2_accuracy_test = MulticlassAccuracy(num_classes=8, k=2)
         
 
        
@@ -79,13 +83,20 @@ class LitNet(pl.LightningModule):
         if optimizer is None:
                 print("Using default optimizer parameters")
                 self.optimizer = Adam(self.net.parameters(), lr = 1e-5)
-        else: 
+        else:
+            
+            print("Using optimizer passed as argument")
             self.optimizer = optimizer
 
         try:
+            self.schedule = schedule
             self.lr_step = config_optimizer["lr_step"]
             self.lr_gamma = config_optimizer["lr_gamma"]
+
+            print("Using lr_step and lr_gamma from config_optimizer")
+
         except:
+            self.schedule = False
             self.lr_step = 1
             self.lr_gamma = 0.0
 
@@ -116,6 +127,7 @@ class LitNet(pl.LightningModule):
         self.log("train_loss", loss.item(), prog_bar=True,on_step=False,on_epoch=True)
         self.log("train_acc", self.accuracy_train(out_argmax, label_argmax), prog_bar=True,on_step=False,on_epoch=True)
         self.log("train_f1_score",self.f1_score_train(out_argmax, label_argmax), prog_bar=True,on_step=False,on_epoch=True)
+        self.log("train_top2_acc",self.top2_accuracy_train(out_argmax, label_argmax), prog_bar=True,on_step=False,on_epoch=True)
         self.confusion_matrix_train.update(out_argmax, label_argmax)
         
         return loss
@@ -149,6 +161,7 @@ class LitNet(pl.LightningModule):
         self.log("val_loss", loss.item(), prog_bar=True,on_step=False,on_epoch=True)
         self.log("val_acc", self.accuracy_val(out_argmax, label_argmax), prog_bar=True,on_step=False,on_epoch=True)
         self.log("val_f1_score",self.f1_score_val(out_argmax, label_argmax), prog_bar=True,on_step=False,on_epoch=True)
+        self.log("val_top2_acc",self.top2_accuracy_val(out_argmax, label_argmax), prog_bar=True,on_step=False,on_epoch=True)
         self.confusion_matrix_val.update(out_argmax, label_argmax)
 
 
@@ -174,9 +187,12 @@ class LitNet(pl.LightningModule):
         out_argmax = out.argmax(dim=1)
         label_argmax = label_batch.argmax(dim=1)
 
+        #Further metrics can be precisione and recall...
+
         self.log("test_loss", loss.item(), prog_bar=True,on_step=False,on_epoch=True)
         self.log("test_acc", self.accuracy_test(out_argmax, label_argmax), prog_bar=True,on_step=False,on_epoch=True)
         self.log("test_f1_score",self.f1_score_test(out_argmax, label_argmax), prog_bar=True,on_step=False,on_epoch=True)
+        self.log("test_top2_acc",self.top2_accuracy_test(out_argmax, label_argmax), prog_bar=True,on_step=False,on_epoch=True)
         self.confusion_matrix_test.update(out_argmax, label_argmax)
 
     def on_test_epoch_end(self):
@@ -195,7 +211,16 @@ class LitNet(pl.LightningModule):
 
         scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=self.lr_step, gamma=self.lr_gamma)
 
-        return {"optimizer": self.optimizer, "lr_scheduler": scheduler}
+        #print("Using StepLR with step_size = {} and gamma = {}".format(self.lr_step, self.lr_gamma))
+
+        if self.schedule:
+            print("Using scheduler")
+            return {'optimizer': self.optimizer, 'lr_scheduler': scheduler}
+            
+        else:
+            print("Not using scheduler")   
+            return self.optimizer
+
 
 
 # Adding BatchNorm to avoid overfitting
@@ -204,7 +229,7 @@ class LitNet(pl.LightningModule):
 class NNET1D(nn.Module):
         
     def __init__(self):
-        super(NNET1D_BN, self).__init__()
+        super(NNET1D, self).__init__()
         
         
         self.c1 = nn.Sequential(
@@ -296,45 +321,47 @@ class NNET1D(nn.Module):
 
 
 
+
+# Start by removing stuff that requires an experiment, like Dropout or BatchNorm
 class NNET2D(nn.Module):
         
-    def __init__(self,initialisation="xavier"):
+    def __init__(self, initialisation="xavier"):
         super(NNET2D, self).__init__()
         
         
         self.c1 = nn.Sequential(
-            nn.Conv2d(in_channels=1, out_channels=256,kernel_size=(4,128)),
+            nn.Conv2d(in_channels=1, out_channels=256,kernel_size=(4,20)),
             nn.BatchNorm2d(256),
             nn.ReLU(),
-            nn.Dropout2d(.2)
+            #nn.Dropout2d(.1)
         )
 
         self.c2 = nn.Sequential(
             nn.Conv2d(in_channels=256, out_channels=256, kernel_size=(4, 1),padding=(2,0)),
             nn.BatchNorm2d(256),
             nn.ReLU(),
-            nn.Dropout2d(.2)
+            #nn.Dropout2d(.1)
         )
 
         self.c3 = nn.Sequential(
             nn.Conv2d(in_channels=256, out_channels=256, kernel_size=(4, 1),padding=(1,0)),
             nn.BatchNorm2d(256),
             nn.ReLU(),
-            nn.Dropout2d(.2)
+            #nn.Dropout2d(.1)
         )
                 
 
         self.fc = nn.Sequential(
-            nn.Linear(2048, 1024),
+            nn.Linear(1024, 1024),
             nn.ReLU(),
-            nn.Dropout(p=0.2),
+            nn.Dropout(p=0.1),
             nn.Linear(1024, 256),
             nn.ReLU(),
-            nn.Dropout(p=0.2),
-            nn.Linear(256, 128),
+            nn.Dropout(p=0.1),
+            nn.Linear(256, 64),
             nn.ReLU(),
-            nn.Dropout(p=0.2),
-            nn.Linear(128, 8),
+            nn.Dropout(p=0.1),
+            nn.Linear(64, 8),
             nn.Softmax(dim=1)
         )
 
@@ -347,6 +374,7 @@ class NNET2D(nn.Module):
             nn.init.xavier_uniform_(module.weight)
             nn.init.constant_(module.bias, 0.0)
         
+        
     def forward(self,x):
         c1 = self.c1(x) 
         c2 = self.c2(c1)
@@ -356,7 +384,11 @@ class NNET2D(nn.Module):
         avg_pool = F.avg_pool2d(x, kernel_size=(125,1))
         x = torch.cat([max_pool,avg_pool],dim=1)
         x = self.fc(x.view(x.size(0), -1)) # Reshape x to fit in linear layers. Equivalent to F.Flatten
-        return x 
+        return x  
+
+
+
+
 
 class MixNet(nn.Module):
     def __init__(self, conv_block1D, conv_block2D):
@@ -364,12 +396,16 @@ class MixNet(nn.Module):
         self.conv_block1D = conv_block1D
         self.conv_block2D = conv_block2D
 
-        self.dropout = nn.Dropout(p=0.5)  # Add dropout layer
-
         self.classifier = nn.Sequential(
-            nn.Linear(512+2048, 128),
+            nn.Linear(1024+1024, 1024),
             nn.ReLU(),
-            self.dropout,   
+            nn.Dropout(p=0.1),   
+            nn.Linear(1024, 512),
+            nn.ReLU(),
+            nn.Dropout(p=0.1),
+            nn.Linear(512, 128),
+            nn.ReLU(),
+            nn.Dropout(p=0.1),
             nn.Linear(128, 8),
             nn.Softmax(dim=1)
         )
@@ -387,9 +423,9 @@ class MixNet(nn.Module):
 
     def forward(self, x):
         audio = x[0]
-        mel   = x[1]
+        spectrogram   = x[1]
         
-        conv2d = self.conv_block2D(mel)
+        conv2d = self.conv_block2D(spectrogram)
         max_pool = F.max_pool2d(conv2d, kernel_size=(125,1))
         avg_pool = F.avg_pool2d(conv2d, kernel_size=(125,1))
         cat2d = torch.cat([max_pool,avg_pool],dim=1)
@@ -411,6 +447,27 @@ class MixNet(nn.Module):
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+'''
 class Encoder(nn.Module):
 
     
@@ -582,3 +639,4 @@ class Autoencoder(nn.Module):
             x = self.encoder(x)
             x = self.decoder(x)
             return x
+'''

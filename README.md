@@ -82,7 +82,6 @@ Altre cose:
 ## Problemi da spiegare: vanishing gradient.
 Come è stato affrontato:
 -	Inizializzato weights
--	Cambiato activation da ReLU a Sigmoid (numerical stability, gradienti che si accumulano)
 -	Gradient clipping
 -	Connessioni residuali + alleggerimento architettura (meno layer/neuroni)
 -	Ma l’unico che ha funzionato è cambiare la normalizzazione da minmax a v2.Normalize(mean,std calcolati su batch del dataset)
