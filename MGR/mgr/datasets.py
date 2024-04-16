@@ -178,7 +178,7 @@ class DataAudioMix(Dataset):
                 spect = librosa.power_to_db(spect).T    
 
             
-            return audio[np.newaxis,:], spect
+            return [audio[np.newaxis,:], spect]
         
     def __getitem__(self, idx):
 
@@ -186,6 +186,7 @@ class DataAudioMix(Dataset):
         try:
             x = self.create_input(idx)
             y = self.label[idx] 
+
         except:
             print("\nNot able to load track number ", self.track_ids[idx], " Loading next one\n")
             x = self.create_input(idx+1)
@@ -197,11 +198,12 @@ class DataAudioMix(Dataset):
             x[0] = scaler.fit_transform(x[0])
             x[1] = scaler.fit_transform(x[1])
 
-        if self.transform:
-
+    
+        if self.transform['1D']:
             # Audiogmentations library requires to specify the sample rate
-            x[0] = self.transform['1D'](x, 44100) # Using 44100, I should make this more robust using sr from previous function
-            x[1] = self.transform['2D'](x)
+            x[0] = self.transform['1D'](x[0], 44100) # Using 44100, I should make this more robust using sr from previous function
+        if self.transform['2D']:
+            x[1] = self.transform['2D'](x[1])
 
         return x,y
 

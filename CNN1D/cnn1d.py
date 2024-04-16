@@ -31,6 +31,13 @@ from torchaudio.transforms import TimeStretch, FrequencyMasking, TimeMasking
 import audiomentations as audio
 import os
 
+"""
+Here you can find the list of the models searched during the hyperparameter optimization.
+At the end, the best performing one is NNET1D_BN, which is saved in the MGR function.
+
+We also find that transformations help the model to generalize better, so we add some data augmentation techniques.
+"""
+
 # Start by removing stuff that requires an experiment, like Dropout or BatchNorm
 class NNET1D_plain(nn.Module):
         
@@ -403,7 +410,7 @@ class NNET1D_K(nn.Module):
         return x 
 
 
-# Adding BatchNorm to avoid overfitting
+# 
 class NNET1D_Lite(nn.Module):
         
     def __init__(self):
@@ -498,7 +505,7 @@ class NNET1D_Lite(nn.Module):
         return x 
 
 
-# Adding BatchNorm to avoid overfitting
+# Full tuning with Optuna
 class NNET1D_BN_hyper(nn.Module):
         
     def __init__(self,trial=None,optuna_params=None):
@@ -696,16 +703,16 @@ if __name__ == "__main__":
               'weight_decay': 0.005,
               }
 
-    optuna_hyper = load_optuna("./cnn-tune-29-03.pickle")
+    optuna_hyper = load_optuna("./cnn-hypertune-last-of-today-30-03.pickle")
 
     config_optimizer.update(optuna_hyper)
 
-    model_net = NNET1D_BN_hyper(optuna_params=optuna_hyper)
+   # model_net = NNET1D_BN_hyper(optuna_params=optuna_hyper)
 
-    #model_net = NNET1D_BN()
+    model_net = NNET1D_BN()
 
     config_train = {"fast_dev_run":False,
-                    'max_epochs': 3,
+                    'max_epochs': 100,
                     'batch_size': 16,
                     'num_workers': os.cpu_count(),
                     'patience': 20,
@@ -717,6 +724,7 @@ if __name__ == "__main__":
     main_train(model_net =model_net,
                 train_transforms=train_transform,
                 eval_transforms= eval_transorm,
+
                 PATH_DATA="../data/", 
                 config_optimizer=config_optimizer,
                 config_train=config_train,
