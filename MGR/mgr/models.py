@@ -71,7 +71,6 @@ class LitNet(pl.LightningModule):
         self.top2_accuracy_train = MulticlassAccuracy(num_classes=8, k=2)
         self.top2_accuracy_val = MulticlassAccuracy(num_classes=8, k=2)
         self.top2_accuracy_test = MulticlassAccuracy(num_classes=8, k=2)
-
         
         """
 

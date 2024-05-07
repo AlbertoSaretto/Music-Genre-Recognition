@@ -8,7 +8,7 @@ from torchaudio.transforms import TimeStretch, FrequencyMasking, TimeMasking
 import audiomentations as audio
 import os
 
-#Housing anywhere case monaco 48 ore per vedere e dire ok sei tutelato, tipo booking
+
 
 #OPTUNA RESULTS:
 # weight decay: 0.000572
@@ -37,20 +37,134 @@ class GaussianNoise:
 
 
 
+
+#////////////////////////////////////////////////////////////////////////////////////
+#Experiment with convolutional block
+#////////////////////////////////////////////////////////////////////////////////////
+
+
+class CONV2D(nn.Module):
+    def __init__(self, initialisation="xavier"):
+        super(CONV2D, self).__init__()
+        
+        self.c1 = nn.Sequential(
+            nn.Conv2d(in_channels=1, out_channels=256,kernel_size=(4,20)),
+            nn.BatchNorm2d(256),
+            nn.ReLU(),
+            #nn.Dropout2d(.1)
+        )
+
+        self.c2 = nn.Sequential(
+            nn.Conv2d(in_channels=256, out_channels=256, kernel_size=(4, 1),padding=(2,0)),
+            nn.BatchNorm2d(256),
+            nn.ReLU(),
+            #nn.Dropout2d(.1)
+        )
+
+        self.c3 = nn.Sequential(
+            nn.Conv2d(in_channels=256, out_channels=256, kernel_size=(4, 1),padding=(1,0)),
+            nn.BatchNorm2d(256),
+            nn.ReLU(),
+            #nn.Dropout2d(.1)
+        )
+
+        self.apply(self._init_weights)
+
+    def _init_weights(self, module):
+        if isinstance(module, nn.Conv2d):
+            nn.init.xavier_uniform_(module.weight)
+            if module.bias is not None:
+                nn.init.constant_(module.bias, 0.0)
+            
+        
+        
+    def forward(self,x):
+        c1 = self.c1(x) 
+        c2 = self.c2(c1)
+        c3 = self.c3(c2)
+        #x = c1 + c3
+        return c3
+    
+
+class CONV1D(nn.Module):
+
+    def __init__(self):
+        super(CONV1D, self).__init__()
+        
+        self.c1 = nn.Sequential(
+            nn.Conv1d(in_channels=1, out_channels=64, kernel_size=128, stride=32, padding=64),
+            nn.BatchNorm1d(64),
+            nn.ReLU(inplace = True),
+            nn.MaxPool1d(kernel_size=4, stride=4),
+          
+        )
+        
+
+        self.c2 = nn.Sequential(
+            nn.Conv1d(in_channels=64, out_channels=128, kernel_size=32, stride=2, padding=16),
+            nn.BatchNorm1d(128),
+            nn.ReLU(inplace = True),
+            nn.MaxPool1d(kernel_size=2, stride=2),
+          
+        )
+
+        self.c3 = nn.Sequential(
+            nn.Conv1d(in_channels=128, out_channels=256, kernel_size=16, stride=2, padding=8),
+            nn.BatchNorm1d(256),
+            nn.ReLU(inplace = True),
+            nn.MaxPool1d(kernel_size=2, stride=2),
+         
+        )
+        
+        #Trying to add 4th convolutional block
+        self.c4 = nn.Sequential(
+            nn.Conv1d(in_channels=256, out_channels=512, kernel_size=8,stride=2, padding=4),
+            nn.BatchNorm1d(512),
+            nn.ReLU(inplace = True),
+           
+        )
+        
+    def forward(self, x):
+
+        c1 = self.c1(x)
+        c2 = self.c2(c1)
+        c3 = self.c3(c2)
+        c4 = self.c4(c3)
+
+        return c4
+        
+
+    
+
+    
+
+
+
+#////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+
+
 class MixNet(nn.Module):
     def __init__(self, conv_block1D, conv_block2D):
+
         super(MixNet, self).__init__()
+
         self.conv_block1D = conv_block1D
         self.conv_block2D = conv_block2D
 
         self.classifier = nn.Sequential(
-            nn.Linear(1024+1024, 1024),
+            nn.Linear(1024+1024, 512),
             nn.ReLU(),
             nn.Dropout(p=0.1),   
-            nn.Linear(1024, 512),
+            nn.Linear(512, 256),
             nn.ReLU(),
             nn.Dropout(p=0.1),
-            nn.Linear(512, 128),
+            nn.Linear(256, 128),
             nn.ReLU(),
             nn.Dropout(p=0.1),
             nn.Linear(128, 8),
@@ -60,11 +174,18 @@ class MixNet(nn.Module):
         self.apply(self._init_weights)
 
     def _init_weights(self, module):
-        # Initialize only self.classifer weights
-        # We need the weights of the trained CNNs
         if isinstance(module, nn.Linear):
             nn.init.xavier_uniform_(module.weight)
-            nn.init.constant_(module.bias, 0.0)
+            if module.bias is not None:
+                nn.init.constant_(module.bias, 0.0)
+        if isinstance(module, nn.Conv1d):
+            nn.init.xavier_uniform_(module.weight)
+            if module.bias is not None:
+                nn.init.constant_(module.bias, 0.0)
+        if isinstance(module, nn.Conv2d):
+            nn.init.xavier_uniform_(module.weight)
+            if module.bias is not None:
+                nn.init.constant_(module.bias, 0.0)
         
         
 
@@ -113,14 +234,19 @@ def build_convolutional_blocks(nnet1d, nnet2d):
 
 
 
+
+        
+
+
+
 if __name__ == "__main__":
 
     train_transform = { '2D':v2.Compose([
                             v2.ToTensor(),
-                            RandomApply(FrequencyMasking(freq_mask_param=40), prob=0.5),     #Time and Freqeuncy are inverted bacause of the data are transposed
-                            RandomApply(TimeMasking(time_mask_param=3), prob=0.5),
+                            RandomApply(FrequencyMasking(freq_mask_param=30), prob=0.5),     #Time and Freqeuncy are inverted bacause of the data are transposed
+                            RandomApply(TimeMasking(time_mask_param=2), prob=0.5),
                             #Add Gaussian noise on spectrogram with v2
-                            RandomApply(GaussianNoise(std = 0.025), prob=0.5),
+                            RandomApply(GaussianNoise(std = 0.015), prob=0.5),
                             ]),
 
                         '1D': audio.Compose([   
@@ -139,13 +265,13 @@ if __name__ == "__main__":
 
     eval_transform = {'2D':v2.Compose([v2.ToTensor(),             
                                       ]),
-                      '1D': None             # PER DIEGO, INSERIRE QUI CORRETTA TRASFORMAZIONE PER AVERE TENSORE SENZA MODIFICHE (lo fa già?)
+                      '1D': None           
     }
 
 
     # Load model weights from checkpoint
 
-
+    '''
 
     CKPT_PATH_1D = "../CNN1D/lightning_logs/full_train_BN_transform/checkpoints/epoch=39-step=16000.ckpt"
     CKPT_PATH_2D = "../CNN2D/lightning_logs/all_trans5_champion/checkpoints/epoch=75-step=7600.ckpt"
@@ -173,6 +299,7 @@ if __name__ == "__main__":
     print("Models loaded.")
     # Build convolutional blocks
     conv_block1D, conv_block2D = build_convolutional_blocks(nnet1d, nnet2d)
+    '''
 
     # Build the model
 
@@ -181,19 +308,19 @@ if __name__ == "__main__":
     #model = LitNet(hyperparameters)
     
     # Comment this if you want to load params with Optuna
-    model_net = MixNet(conv_block1D, conv_block2D)
+    model_net = MixNet(CONV1D(), CONV2D())
    
     
     config_optimizer = {'lr': 5e-5,
               'lr_step': 100,
               'lr_gamma': 0,
-              'weight_decay': 0.0057,
+              'weight_decay': 0,
               }
     
     config_train = {"fast_dev_run":False,
                     'max_epochs': 100,
-                    'batch_size': 64,
-                    'num_workers': 6,
+                    'batch_size': 32,
+                    'num_workers': 4,
                     'patience': 20,
                     'net_type':'Mix',
                     'mfcc': True,
