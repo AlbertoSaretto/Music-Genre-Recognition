@@ -194,11 +194,14 @@ class NNET1D_BN(nn.Module):
         self.apply(self._init_weights)
 
     def _init_weights(self, module):
-        # Initialize only self.classifer weights
-        # We need the weights of the trained CNNs
         if isinstance(module, nn.Linear):
             nn.init.xavier_uniform_(module.weight)
-            nn.init.constant_(module.bias, 0.0)
+            if module.bias is not None:
+                nn.init.constant_(module.bias, 0.0)        
+        if isinstance(module, nn.Conv2d):
+            nn.init.xavier_uniform_(module.weight)
+            if module.bias is not None:
+                nn.init.constant_(module.bias, 0.0)
         
 
     def forward(self, x):
@@ -382,11 +385,14 @@ class NNET1D_K(nn.Module):
         self.apply(self._init_weights)
 
     def _init_weights(self, module):
-        # Initialize only self.classifer weights
-        # We need the weights of the trained CNNs
         if isinstance(module, nn.Linear):
             nn.init.xavier_uniform_(module.weight)
-            nn.init.constant_(module.bias, 0.0)
+            if module.bias is not None:
+                nn.init.constant_(module.bias, 0.0)        
+        if isinstance(module, nn.Conv2d):
+            nn.init.xavier_uniform_(module.weight)
+            if module.bias is not None:
+                nn.init.constant_(module.bias, 0.0)
         
 
     def forward(self, x):
@@ -698,14 +704,14 @@ if __name__ == "__main__":
 
     # This gets updated by the hyperparameter optimization
     config_optimizer = {'lr': 1e-4,
-              'lr_step': 10,
-              'lr_gamma': 0.05,
+              'lr_step': 100,
+              'lr_gamma': 0,
               'weight_decay': 0.005,
               }
 
-    optuna_hyper = load_optuna("./cnn-hypertune-last-of-today-30-03.pickle")
+    #optuna_hyper = load_optuna("./cnn-hypertune-last-of-today-30-03.pickle")
 
-    config_optimizer.update(optuna_hyper)
+    #config_optimizer.update(optuna_hyper)
 
    # model_net = NNET1D_BN_hyper(optuna_params=optuna_hyper)
 
@@ -713,12 +719,13 @@ if __name__ == "__main__":
 
     config_train = {"fast_dev_run":False,
                     'max_epochs': 100,
-                    'batch_size': 16,
-                    'num_workers': os.cpu_count(),
+                    'batch_size': 64,
+                    'num_workers': 6,
                     'patience': 20,
                     'net_type':'1D',
                     'mfcc': False,
-                    'normalize': False
+                    'normalize': False,
+                    'schedule': False
                     }
  
 
