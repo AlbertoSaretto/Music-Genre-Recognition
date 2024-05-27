@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from torch.utils.data import Dataset
+import torch
 import librosa
 from tensorflow.keras.utils import to_categorical
 import mgr.utils as utils
@@ -13,6 +14,8 @@ import warnings
 import h5py
 import os
 import gc
+
+
 
 #Function to extract audio signal from .mp3 file
 def getAudio(idx, sr_i=None, PATH_DATA="data/"):
@@ -51,152 +54,6 @@ def create_subset(raw_sub):
     return subset
 
 
-#function for the creation of datasets arrays for CNNs learning
-#Function for the creation of 1d audio signal dataset
-
-def splitAudio(subset, data_type):
- 
-    data = np.array([0,0])
-    
-    #Select data type among full subset
-    split = subset[subset['split'] == data_type]
-
-    for index, row in split.iterrows(): 
-        try: 
-            audio = np.array(getAudio(row['index'])[0])
-            y = row['labels']
-            new_row = np.array([audio, y], dtype=object)
-            data = np.vstack([data, new_row])
-        except:
-            print('problems with song: ', row['index'])
-    
-    #Remove first empty row
-    data = data[1:]
-    
-    #Shuffle the dataset
-    np.random.shuffle(data)
-    
-    return data
-
-
-#Functions for the creation of .npy files for heavy arrays (split arrays in multiple files and then reconstrict it)
-
-def saveheavy(data, name, n):  #functions to save havy arrays in multiple files
-    l= len(data)
-    if(n>1):
-        for i in range(n-1):
-            data_i = data[int((l/n)*i):int((l/n)*(i+1))]
-            np.save(f'data/audio_array/{name}_{i+1}.npy', data_i)
-    data_i = data[int((l/n)*(n-1)):l]
-    np.save(f'data/audio_array/{name}_{n}.npy', data_i)
-
-
-def readheavy(name, n, Dir):
-    data = np.array([0,0])
-    for i in range(n):
-        new_row = np.load(f'{Dir}/{name}_{i+1}.npy', allow_pickle = True)
-        data = np.vstack([data, new_row])
-    return data[1:]  
-
-
-
-def get_stft(a, get_log = False):
-    if(get_log == False):
-        for j in range(len(a)):
-            audio = a[j, 0]
-            stft = np.abs(librosa.stft(audio, n_fft=1024, hop_length=512))   
-            a[j ,0] = stft 
-        return a    
-    if(get_log == True):
-        for j in range(len(a)):
-            audio = a[j, 0]
-            stft = np.abs(librosa.stft(audio, n_fft=1024, hop_length=512))   
-            log_stft = librosa.amplitude_to_db(stft)
-            a[j ,0] = log_stft
-        return a
-    
-
-def get_mel(a, get_log = False):
-    if(get_log == False):
-        for j in range(len(a)):
-            audio = a[j, 0]
-            stft = np.abs(librosa.stft(audio, n_fft=4096, hop_length=2048))
-            mel = librosa.feature.melspectrogram(sr=44100, S=stft**2, n_mels=513)[:,:128]     
-            a[j ,0] = stft 
-        return a    
-    if(get_log == True):
-        for j in range(len(a)):
-            audio = a[j, 0]
-            stft = np.abs(librosa.stft(audio, n_fft=4096, hop_length=2048))
-            mel = librosa.feature.melspectrogram(sr=44100, S=stft**2, n_mels=513)[:,:128]   
-            mel = librosa.power_to_db(mel) 
-            a[j ,0] = mel
-        return a
-    
-
-def get_mel_from_clip(c_stft):
-    for j in range(len(c_stft)):
-        clip = c_stft[j,0]
-        mel = librosa.feature.melspectrogram(sr=44100, S=clip**2, n_mels=513)
-        c_stft[j,0] = librosa.power_to_db(mel)
-    return c_stft   
-
-
-
-
-#Function to generate shorter data clips 
-
-def clip_mel(a, n_samples):
-    a_clip = np.array([0,0])
-    for j in range(len(a)):
-        full = a[j, 0].T
-        n=0
-        while (n<(len(full)-n_samples)):
-            clip = full[n: (n+n_samples)]
-            y = a[j, 1]
-            new_row = np.array([clip, y], dtype=object)
-            a_clip = np.vstack([a_clip, new_row])
-            n+=int(n_samples/2)
-    return a_clip[1:]
-
-
-
-   
-
-def pca_transform(clips, n_components=0.99):
-
-    from sklearn.decomposition import PCA
-
-    """
-    It's necessary to manipulate the data in order to apply PCA, since it requires a 2D array as input
-    First X is extracted, then it's reshaped in a 2D array with vstack,
-    then PCA is applied and finally the data is reshaped again
-    
-    Examples of shapes, using import_and_preprocess_data with window of 22050/10
-
-    clip.shape = (59243,2)
-    X.shape = (59243,)
-    np.vstack(X).shape = (59243, 2205)
-    pca.fit_transform(X).shape = (59243, 1237)
-
-    So to use a trick to substitue all X with X_ in the original dataset
-    it's necessary to np.split(X_, 59243, axis=0)
-
-    """
-    # Extract X
-    X = clips[:,0]
-    # Reshape X in a 2D array
-    X = np.vstack(X)
-    # Apply PCA
-    pca = PCA(n_components=n_components)
-    X_ = pca.fit_transform(X)
-    
-    # Substitute X with X_ in the original dataset
-    clips[:,0] = np.split(X_, clips.shape[0], axis=0)
-
-    return clips
-
-
 
 def import_and_preprocess_data(PATH_DATA="../data/"):
     # Load metadata and features.
@@ -215,36 +72,12 @@ def import_and_preprocess_data(PATH_DATA="../data/"):
     meta_subset = meta_subset[~meta_subset['index'].isin(corrupted)]
 
     #Split between taining, validation and test set according to original FMA split
-
     train_set = meta_subset[meta_subset["split"] == "training"]
     val_set   = meta_subset[meta_subset["split"] == "validation"]
     test_set  = meta_subset[meta_subset["split"] == "test"]
 
     return train_set, val_set, test_set
 
-
-def display_mel(idx, n_samples, n_fft, n_mels, time_bin, sr_i=None, PATH_DATA="data/"):
-
-    audio, sr = getAudio(idx, sr_i, PATH_DATA)
-
-    #Select random clip from audio
-    start = np.random.randint(0, (audio.shape[0]-n_samples))
-    audio = audio[start:start+n_samples]
-    
-    #Get 2D spectrogram
-    stft = np.abs(librosa.stft(audio, n_fft=n_fft, hop_length=int(n_fft/2)))              
-    mel = librosa.feature.melspectrogram(sr=sr, S=stft**2, n_mels=n_mels)
-    print('Original mel spectrogram (transpose shape is: ', mel.T.shape)
-    mel = mel[:,:time_bin]
-    mel = librosa.power_to_db(mel)
-    
-    # Plot the log mel spectrogram for visualization purpose 
-    plt.figure(figsize=(7, 3))
-    librosa.display.specshow(mel, sr=sr, hop_length=int(n_fft/2), x_axis='time', y_axis='mel')
-    plt.colorbar(format='%+2.0f dB')
-    plt.show()
-
-    return 0
 
 def create_dataloaders(PATH_DATA="data/",transforms=None,batch_size=64,num_workers=os.cpu_count(),net_type='1D', mfcc=False, normalize=False, train_transforms=None, eval_transforms=None):
   
@@ -271,15 +104,8 @@ def create_dataloaders(PATH_DATA="data/",transforms=None,batch_size=64,num_worke
 
     return train_dataloader, val_dataloader, test_dataloader
 
-"""
-compute_CM_terms and compute_metrics are used to compute the confusion matrix and the metrics
-
-"""
-
-
 
 #Function for main training of the network
-
 def main_train(model_net, 
                config_optimizer= None,
                config_train = None,
@@ -331,15 +157,6 @@ def main_train(model_net,
 
     model = LitNet(model_net, optimizer = optimizer, config_optimizer = config_optimizer, schedule = config_train['schedule'])
 
-
-    # Load model weights from checkpoint
-    #CKPT_PATH = "./lightning_logs/version_16/checkpoints/epoch=19-step=2000.ckpt"
-    #checkpoint = torch.load(CKPT_PATH)
-    #model.load_state_dict(checkpoint['state_dict'])
-
-    
-
-
     train_dataloader,  val_dataloader, test_dataloader  = create_dataloaders(PATH_DATA=PATH_DATA, train_transforms=train_transforms, eval_transforms=eval_transforms,net_type=config_train['net_type'], batch_size = config_train['batch_size'], num_workers = config_train['num_workers'], mfcc = config_train['mfcc'], normalize = config_train['normalize'])
     
 
@@ -360,3 +177,13 @@ class RandomApply:
         if torch.rand(1) < self.prob:
             return self.transform(x)
         return x
+    
+class GaussianNoise:
+    def __init__(self, mean=0., std=1.):
+        self.mean = mean
+        self.std = std
+
+    def __call__(self, tensor):
+        #return tensor + absolute value of noise
+        return tensor + torch.abs(torch.randn(tensor.size()) * self.std + self.mean)
+
