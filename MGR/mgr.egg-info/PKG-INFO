@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: mgr
-Version: 0.1.1
+Version: 1.0.0
 Summary: Package for the Music Genre Recognition (MGR) project
 Author: Diego Bonato, Alberto Saretto, Luca Menti
 Requires-Dist: numpy
