@@ -5,6 +5,8 @@ In this project, three neural networks architecture were implemented and tested 
 ## 1D CNN
 Convolutional neural network feed by audio signals as input data
 
+![1D Scheme](Figures/CNN\ 1D\ Scheme.pdf)
+
 ## 2D CNN 
 Convolutional neural network with a residual connection feed by 2D spectrograms
 
