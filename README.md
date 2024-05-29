@@ -12,7 +12,4 @@ Convolutional neural network with a residual connection feed by 2D spectrograms
 ## MixNet 
 This arichtecture was created by combining the convolutional blocks of the previous networks. It thus extracts and exploits information from both 1D audio signals and 2D spectrograms
 
-## Results
-
-![Results](Figures/Final_plot.png)
 
