@@ -5,7 +5,9 @@ In this project, three neural networks architecture were implemented and tested 
 ## 1D CNN
 Convolutional neural network using 1D audio clips as input data.
 
+<center>
 <img src="imgs/cnn1D_scheme.jpg" alt="1D CNN Architecture" width="300">
+</center>
 
 
 ## 2D CNN 
