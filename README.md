@@ -2,7 +2,7 @@
 
 We present a deep learning approach to solve the music genre classification task using the [FMA dataset](https://github.com/mdeff/fma). Three different architectures have been developed in PyTorch, exploiting different representation of audio signals, namely 1D audio clips, 2D spectrograms and a mix of the two. 
 
-The models are trained on 8 differenet music genre classes and they reach the following final scores on the test set:
+The models are trained on 8 different music genre classes and they reach the following final scores on the test set:
 
 | Model | Accuracy | Cross-Entropy Loss | F1 Score |
 |-------|----------|--------------------| ---------|
