@@ -1,6 +1,9 @@
 # Music Genre Recognition with Convolutional Neural Networks
 
-In this project, three neural networks architecture were implemented and tested to solve the music genre classification task.
+We present a deep learning approach to solve the music genre classification task using the FMA dataset [1].
+
+[1]: [https://github.com/mdeff/fma](https://github.com/mdeff/fma)
+
 
 ## 1D CNN
 Convolutional neural network using 1D audio clips as input data.
