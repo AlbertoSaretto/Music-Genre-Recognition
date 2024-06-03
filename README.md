@@ -1,6 +1,16 @@
 # Music Genre Recognition with Convolutional Neural Networks
 
-We present a deep learning approach to solve the music genre classification task using the [FMA dataset](https://github.com/mdeff/fma).
+We present a deep learning approach to solve the music genre classification task using the [FMA dataset](https://github.com/mdeff/fma). Three different architectures have been developed in PyTorch, exploiting different representation of audio signals, namely 1D audio clips, 2D spectrograms and a mix of the two. 
+
+The final models reach the following scores:
+
+| Model | Accuracy |
+|-------|----------|
+| CNN1D | 85%      |
+| CNN2D | 90%      |
+| MixNet| 92%      |
+
+
 
 
 ## 1D CNN
