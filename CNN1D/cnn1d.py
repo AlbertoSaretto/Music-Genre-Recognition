@@ -50,7 +50,3 @@ if __name__ == "__main__":
                 config_optimizer=config_optimizer,
                 config_train=config_train,
                 )
-
-        
-  
-    
