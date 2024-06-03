@@ -28,7 +28,9 @@ Residual Convolutional neural network using 2D spectrograms as input data.
 </p>
 
 ## MixNet 
-This arichtecture was created by combining the convolutional blocks of the previous networks. It thus extracts and exploits information from both 1D audio signals and 2D spectrograms.
+This network exploits information from both 1D audio signals and 2D spectrograms.
+The CNN blocks are the 1D CNN and 2D CNN presented above. 
+
 
 <p align="center">
   <img src="imgs/cnnmix_scheme.jpg" alt="MixNet Architecture" width="400" />
