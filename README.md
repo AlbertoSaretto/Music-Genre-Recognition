@@ -10,9 +10,12 @@ Convolutional neural network using 1D audio clips as input data.
 
 ## 2D CNN 
 Residual Convolutional neural network using 2D spectrograms as input data.
-<img src="imgs/cnn2D_scheme.jpg" alt="2D CNN Architecture" width="300">
+
+<img src="imgs/cnn2d_scheme.jpg" alt="2D CNN Architecture" width="300">
 
 ## MixNet 
 This arichtecture was created by combining the convolutional blocks of the previous networks. It thus extracts and exploits information from both 1D audio signals and 2D spectrograms.
+
+
 <img src="imgs/cnnmix_scheme.jpg" alt="MixNet Architecture" width="300">
 
