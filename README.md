@@ -1,90 +1,37 @@
-# MGR
+# Music Genre Recognition with Convolutional Neural Networks
 
-## Update NUOVO TESTAMENTO - 09/02/2024
-Cose:
+We present a deep learning approach to solve the music genre classification task using the [FMA dataset](https://github.com/mdeff/fma). Three different architectures have been developed in PyTorch, exploiting different representation of audio signals, namely 1D audio clips, 2D spectrograms and a mix of the two. 
 
-* no Adagrad ma Adam ovunque: fatto. Sarà da fare esperiemnti con SGD with momentum
-* aggiunta confusion matrix e f1 score. Studiare se altre metriche sono necessarie. In torchmetrics ce ne sono a bizzeffe, anche specifiche per audio
-* iniziato studio trasformazioni. Vedi cartella apposita. **check on MEL Spec** sono tutti sballati. Decidere che linea seguire: io propongo training senza data augmentation e poi esperimenti con.
-* Nello studio trasformazioni trovi anche plot diagnostici da eventualmente implementare
-* implementare utilizzo gpu.
-* Sistemare struttura 2D al nuovo formato dei mel.
-  
+The models are trained on 8 different music genre classes and they reach the following final scores on the test set:
 
-Altre cose da fare che mi sono segnato dopo l'incontro:
-* capire normalizzazione. Vedi cosa fanno su `usage.ipynb`. fatto, in genere viene aaplicata una standard scaler: (x-u)/s. implementare.
-* test set should be fixed: no random windows. fatto.
-  
-
-Una volta fatte queste dovremmo essere pronti per partire con i primi esperimenti.
-
-Altre cose:
-* MixNet è da sistemare
-* ResNet with finetuning could help
-* LSTM layer could help
-* Always check training loss plots to understand if model is underparametrized / overfit etc
-
-----
-
-  
-## WHERE WE ARE // WHERE ARE WE GOING
-
-**Metrics to be added. General hyperparams tuning is needed. No weights analysis done (farla alla fine)**
-**remember to show explorative analysis of dataset, eg data is balanced?**
-
-* CNN 1D: 
-	- accuracy <30%
-	- dropout all layers + MaxPool
-	- no data augmentation
-	- no PCA
-	- c3 vs c4 ? (compare net with three and four layers)
-	- only 6s clip -> try longer clips
-	- no Optuna hyperparams tuning. Needs to be done.
-	- What normalization? Try MinMax?
-		- **TO DO: longer clips, data augmentation, w/wo layers, optimizers**
-
-* CNN 2D:
-	- accuracy <33%
-	- MEL only (in Old trovi STFT ma è da rifare, very promising)
-	- need to tune MEL BINS ( <513 bins ? )
-	- 6s clips only -> try longer/shorter
-	- logarithms are OK
-	- data augmentation DONE
-	- v2.Norm vs MinMaxScaler ? 
-		-  **TO DO: many trainings with STFT only; different MELS; longer clips**
-
-* MIXNET (1D+2D):
-	- Full train (pre-trained mixed model):
-		- $\sim$ 38% (validation)
-	- Transfer learning: 
-		- random accuracy
-		- **building blocks are wrong!**
-
---- 
-### Exotic models.
-* SpatialTransformationNet: random.
-* Autoencoder + ResAutoencoder : boh.
-* LSTM?????
+| Model | Accuracy | Cross-Entropy Loss | F1 Score |
+|-------|----------|--------------------| ---------|
+| CNN1D | 47%      | 1.73               | 0.33 |
+| CNN2D | 51%      | 1.70               | 0.38 |
+| MixNet| 55%      | 1.65               | 0.35 |
 
 
 
------------------------------------------------
-# MODELLI E RELATIVI PROBLEMI
+
+## 1D CNN
+Convolutional neural network using 1D audio clips as input data.
+
+<p align="center">
+  <img src="imgs/cnn1D_scheme.jpg" alt="1D CNN Architecture" width="400" />
+</p>
 
 
--	CNN 1D: acc <30%,  optuna
--	CNN 2D : acc <40%, optuna (discutere full optuna, change lr)
--	Transfer learning: acc 12.5%  necessari più layer predictor, ma RAM. CNN non hanno buona acc di per sè quindi forse cnn non estraggono abbastanza bene le feature da essere classificate. TL puoi pompare predictor finale perché meno parametri da allenare
--	CNN 1D+2D: ? trainabile? Vanishing? Discutere numero parametri . Stare più accorti con predictor finale perché troppi parametri non stanno in RAM
--	SPATIAL TRANSFORMER NET + versione RES: spiegare cos’è e risultati training?
--	AE + ResAE: vanno trainati e va allenato predictor su spazio latente
+## 2D CNN 
+Residual Convolutional neural network using 2D spectrograms as input data.
+<p align="center">
+  <img src="imgs/cnn2D_scheme.jpg" alt="2D CNN Architecture" width="400" />
+</p>
 
-## Problemi da spiegare: vanishing gradient.
-Come è stato affrontato:
--	Inizializzato weights
--	Gradient clipping
--	Connessioni residuali + alleggerimento architettura (meno layer/neuroni)
--	Ma l’unico che ha funzionato è cambiare la normalizzazione da minmax a v2.Normalize(mean,std calcolati su batch del dataset)
-**ATTENZIONE: Il problema era la mia funzione e si è risolto usando la funzione di Sklearn anziché la mia.**
-## MANCA TUTTA LA PARTE DI ANALISI DEI WEIGHTS 
-(vedi consegna su ppt)
+## MixNet 
+This network exploits information from both 1D audio signals and 2D spectrograms.
+The CNN blocks are the 1D CNN and 2D CNN presented above. 
+
+
+<p align="center">
+  <img src="imgs/cnnmix_scheme.jpg" alt="MixNet Architecture" width="400" />
+</p>

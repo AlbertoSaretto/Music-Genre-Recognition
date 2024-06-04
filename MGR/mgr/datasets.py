@@ -10,6 +10,10 @@ from sklearn import preprocessing
 
 
 
+##############################################################################################################
+#2D and 1D DataAudio
+##############################################################################################################
+
 
 class DataAudio(Dataset):
 
@@ -47,12 +51,6 @@ class DataAudio(Dataset):
     def create_input(self, i):
       
         # Get audio
-
-        # load audio track
-        #with warnings.catch_warnings():
-        #    warnings.simplefilter('ignore')
-
-        
         with warnings.catch_warnings():
             warnings.simplefilter('ignore')
             audio, sr = getAudio(self.track_ids[i], PATH_DATA = self.path)
@@ -80,12 +78,10 @@ class DataAudio(Dataset):
                 else:
                     spect = librosa.power_to_db(spect).T    
 
-                    return spect
+                return spect
             
-            return audio[np.newaxis,:]   # FUNZIONA ANCHE CON SOLO AUDIO E TOTENSOR????
+            return audio[np.newaxis,:]  
         
-            
-
     def __getitem__(self, idx):
 
         # get input and label
@@ -105,11 +101,18 @@ class DataAudio(Dataset):
         if self.transform:
             
             if self.type=="1D":
-                 # Audiogmentations library requires to specify the sample rate
-                 x = self.transform(x, 44100) # Using 44100, I should make this more robust using sr from previous function
+                # Audiogmentations library requires to specify the sample rate
+                x = self.transform(x, 44100) 
+            else:
+                x = self.transform(x)
+                
         return x,y
     
 
+
+##############################################################################################################
+#MixNet DataAudio
+##############################################################################################################
 
 
 class DataAudioMix(Dataset):
@@ -145,12 +148,6 @@ class DataAudioMix(Dataset):
     def create_input(self, i):
       
         # Get audio
-
-        # load audio track
-        #with warnings.catch_warnings():
-        #    warnings.simplefilter('ignore')
-
-        
         with warnings.catch_warnings():
             warnings.simplefilter('ignore')
             audio, sr = getAudio(self.track_ids[i], PATH_DATA = self.path)
@@ -201,7 +198,7 @@ class DataAudioMix(Dataset):
     
         if self.transform['1D']:
             # Audiogmentations library requires to specify the sample rate
-            x[0] = self.transform['1D'](x[0], 44100) # Using 44100, I should make this more robust using sr from previous function
+            x[0] = self.transform['1D'](x[0], 44100) 
         if self.transform['2D']:
             x[1] = self.transform['2D'](x[1])
 
@@ -210,122 +207,3 @@ class DataAudioMix(Dataset):
 
 
 
-
-
-
-
-'''
-class DataAudioH5(Dataset):
-
-    def __init__(self, dataset_folder="./h5_experimentation/", dataset_type="train", transform=None,input_type="2D"):
-        
-        self.x = h5py.File(os.path.join(dataset_folder, f"{dataset_type}_x.h5"),"r")[f"{dataset_type}"]
-        self.y = h5py.File(os.path.join(dataset_folder, f"{dataset_type}_y.h5"),"r")[f"{dataset_type}"]
-        self.transform = transform
-        #Select type of input
-        self.type = input_type
-
-    def __len__(self):
-
-        return self.x.len()
-
-    def create_input(self, audio, sr=22050):
-
-        """
-        This function takes an audio clip and creates the input for the model
-        """
-      
-        # Get audio
-
-        # load audio track
-        #with warnings.catch_warnings():
-        #    warnings.simplefilter('ignore')
-
-        #Select random clip from audio
-        start = np.random.randint(0, (audio.shape[0]-2**18))
-        audio = audio[start:start+2**18]
-        
-        if self.type ==  "2D":
-            
-            #Get 2D spectrogram
-            stft = np.abs(librosa.stft(audio, n_fft=4096, hop_length=2048))
-            
-            mel = librosa.feature.melspectrogram(sr=sr, S=stft**2, n_mels=513)[:,:128]
-            mel = librosa.power_to_db(mel).T
-            return mel
-    
-        return audio[np.newaxis,:]
-
-
-
-    def __getitem__(self, idx):
-
-        # get input and label
-
-        audio = self.x[idx]
-        x = self.create_input(audio)
-        y = self.y[idx]
-
-        if self.transform:
-            x = self.transform(x)
-           
-        return x,y
-
-
-
-class DataAudioH5_colab(Dataset):
-
-    def __init__(self, file_x,file_y,dataset_folder="./h5_experimentation/", dataset_type="train", transform=None,input_type="2D"):
-        
-        self.x = h5py.File(os.path.join(dataset_folder, f"{dataset_type}_x.h5"),"r")[f"{dataset_type}"]
-        self.y = h5py.File(os.path.join(dataset_folder, f"{dataset_type}_y.h5"),"r")[f"{dataset_type}"]
-        self.transform = transform
-        #Select type of input
-        self.type = input_type
-
-    def __len__(self):
-
-        return self.x.len()
-
-    def create_input(self, audio,sr=22050):
-
-        """
-        This function takes an audio clip and creates the input for the model
-        """
-      
-        # Get audio
-
-        # load audio track
-        #with warnings.catch_warnings():
-        #    warnings.simplefilter('ignore')
-
-        #Select random clip from audio
-        start = np.random.randint(0, (audio.shape[0]-2**18))
-        audio = audio[start:start+2**18]
-        
-        if self.type ==  "2D":
-            
-            #Get 2D spectrogram
-            stft = np.abs(librosa.stft(audio, n_fft=4096, hop_length=2048))
-            
-            mel = librosa.feature.melspectrogram(sr=sr, S=stft**2, n_mels=513)[:,:128]
-            mel = librosa.power_to_db(mel).T
-            return mel[np.newaxis,:]
-    
-        return audio[np.newaxis,:]
-
-
-
-    def __getitem__(self, idx):
-
-        # get input and label
-
-        audio = self.x[idx]
-        x = self.create_input(audio)
-        y = self.y[idx]
-
-        if self.transform:
-            x = self.transform(x)
-           
-        return x,y
-'''
