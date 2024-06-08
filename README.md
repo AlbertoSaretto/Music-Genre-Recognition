@@ -38,6 +38,7 @@ The CNN blocks are the 1D CNN and 2D CNN presented above.
 
 
 ## How to use
+In this repository you will find the following folders.
 
 * `CNN1D`: containing the files related to the neural network working with 1D audio signals.
 * `CNN2D`: containing the files related to the neural network working with 2D audio signals.
