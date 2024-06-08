@@ -10,7 +10,7 @@ The models are trained on 8 different music genre classes and they reach the fol
 | CNN2D | 51%      | 1.70               | 0.38 |
 | MixNet| 55%      | 1.65               | 0.35 |
 
-
+You can find a detailed report in the report.pdf (to be added soon).
 
 
 ## 1D CNN
@@ -35,3 +35,15 @@ The CNN blocks are the 1D CNN and 2D CNN presented above.
 <p align="center">
   <img src="imgs/cnnmix_scheme.jpg" alt="MixNet Architecture" width="400" />
 </p>
+
+
+## How to use
+
+* `CNN1D`: containing the files related to the neural network working with 1D audio signals.
+* `CNN2D`: containing the files related to the neural network working with 2D audio signals.
+* `MixNet`: containing the files related to the neural network working with both 1D and 2D audio signals.
+* `MGR`: the python package needed to run all the files in this repository.
+
+Begin by installing the MGR package. Open a terminal and go inside the MGR directory. Run `pip install .`. Remember to install the package again anytime you modify a file inside of it, otherwise the change won't be registered. Also, we advise to create a new environment starting from the file `mgr_env.yml` (to be added soon).
+
+In each folder, you can find two .py files: one is named after the network that is uses (e.g. `cnn1d.py`), the other is `hypertune.py` and it is used for the fine-tuning of the models. You will also find a `lightning_logs` folder, that is used by Lightining Pytorch to store useful data such as checkpoints. 
