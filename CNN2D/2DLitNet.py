@@ -17,7 +17,9 @@ import pytorch_lightning as pl
 from torchmetrics.classification import MulticlassConfusionMatrix, MulticlassF1Score, MulticlassAccuracy
 import torcheval.metrics
 
-
+"""
+See cnn1d.py for a more detailed explanation of the code
+"""
 
 if __name__ == "__main__":
 

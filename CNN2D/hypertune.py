@@ -9,7 +9,9 @@ import os
 import torch.nn.functional as F
 from torchvision.transforms import v2
 
-
+"""
+Read hypertune.py in the CNN1D folder for a more detailed explanation of the code
+"""
 
 class NNET2D(nn.Module):
     
@@ -77,8 +79,6 @@ class NNET2D(nn.Module):
 
 
 
-
-# questo lo salvo qua solo per ricordamelo
 def load_optuna( file_path = "./trial.pickle"):
     # Specify the path to the pickle file
 

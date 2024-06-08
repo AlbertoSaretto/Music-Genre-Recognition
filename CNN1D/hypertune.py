@@ -8,6 +8,11 @@ import torch.nn as nn
 import os
 import torch.nn.functional as F
 
+"""
+Here you can define the model that you want to optimize.
+The reading of optuna documentation is suggested. https://optuna.readthedocs.io/en/stable/index.html
+"""
+
 # Adding BatchNorm to avoid overfitting
 class NNET1D_BN_hyper(nn.Module):
         
@@ -156,7 +161,7 @@ class NNET1D_BN_hyper(nn.Module):
         return x 
 
 
-# questo lo salvo qua solo per ricordamelo
+# Utility function to load the best optuna trial
 def load_optuna( file_path = "./trial.pickle"):
     # Specify the path to the pickle file
 
@@ -172,7 +177,14 @@ def load_optuna( file_path = "./trial.pickle"):
     return hyperparameters
  
 def define_model(trial=None,optuna_params=None,in_features=4096):
+    """
+    This function is useful if you want Optuna to tune completely the architecture of the model.
+    set trial!=None to use Optuna to tune the model architecture.
+    set optuna_params!=None to use the best trial from a previous optimization.
 
+    This results in a heavy optimization process, so it is recommended to use it only if you have a lot of computational resources.
+    
+    """
     # Get from trial the number of n_components
     
     if trial is not None:
@@ -213,7 +225,7 @@ def define_model(trial=None,optuna_params=None,in_features=4096):
 def objective(trial):
 
     
-    model_net = NNET1D_BN_hyper(trial=trial)
+    model_net = NNET1D_BN_hyper(trial=trial) # Change the model here
 
     
     config_optimizer = {'lr': trial.suggest_float('lr', 1e-5, 1e-4),
@@ -272,7 +284,7 @@ def HyperTune(study_name = "cnn-hypertune" , n_trials=100, timeout=300):
     #optuna.logging.get_logger("optuna").addHandler(logging.StreamHandler(sys.stdout))
      # Unique identifier of the study.
     #storage_name = "sqlite:///{}.db".format(study_name)
-    storage_name = "sqlite:///cnn-hypertune.db".format(study_name)
+    storage_name = "sqlite:///cnn-hypertune.db".format(study_name) # This will create a db file that you can read with the optuna dashboard
  
     study = optuna.create_study(study_name=study_name, direction="minimize", pruner=None, load_if_exists=True,storage=storage_name) #storage="sqlite:///myfirstoptimizationstudy.db"
     study.optimize(objective, n_trials=n_trials, timeout=timeout)
