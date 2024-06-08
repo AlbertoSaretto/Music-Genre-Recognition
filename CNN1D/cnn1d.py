@@ -19,7 +19,7 @@ if __name__ == "__main__":
         audio.TimeMask(min_band_part=0.1, max_band_part=0.15, fade=True, p=1.0)
     ])
 
-    
+    # This is just to signal that we have no augmentation for the evaluation set
     eval_transorm = None
 
     # This gets updated by the hyperparameter optimization
@@ -29,17 +29,17 @@ if __name__ == "__main__":
               'weight_decay': 0.005,
               }
 
-    model_net = NNET1D()
+    model_net = NNET1D() # Import the net that you want to use from mgr.models
 
-    config_train = {"fast_dev_run":False,
+    config_train = {"fast_dev_run":False, # Used to test the code fast
                     'max_epochs': 100,
                     'batch_size': 64,
-                    'num_workers': os.cpu_count(),
-                    'patience': 20,
-                    'net_type':'1D',
-                    'mfcc': False,
-                    'normalize': False,
-                    'schedule': False
+                    'num_workers': os.cpu_count(), # Number of workers for the dataloader
+                    'patience': 20, # Early stopping, read lightning doc
+                    'net_type':'1D', # 1D or 2D or Mix
+                    'mfcc': False, # Used only for 2D nets
+                    'normalize': False, # Normalize the input. In our case 1D data are already normalized
+                    'schedule': False # If you want to use a learning rate scheduler
                     }
  
 
